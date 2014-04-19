@@ -289,9 +289,12 @@ class Solarlog_model extends CI_Model {
 		}
 		$result = array();
 		$energy = 0;
+		
 		if ( count ( $this->InverterInfo ) > 0 ) {
+			// always iterate over all inverters first.
 			foreach ( $this->InverterInfo [0]->minutesData as $minData ) {
 				$value = 0;
+				$val = array();
 				foreach ( $this->InverterInfo as $inverter ) {
 					$result[0]['name'] = 'Gesamt ' . $type;
 					$connectedPowerkWp = $inverter->ConnectedPower/1000;
@@ -299,8 +302,12 @@ class Solarlog_model extends CI_Model {
 						$value += $inverter->minutesData [ $minData [ 'timestamp' ] ][ $type ] ;
 					}
 					else {
-						$value += $inverter->minutesData [ $minData [ 'timestamp' ] ][ $type ]/$connectedPowerkWp ;
+						// If normalized, we need an array of all inverters to calculate the average of these. May be wrong ...
+						$val[$inverter->InverterNumber] = $inverter->minutesData [ $minData [ 'timestamp' ] ][ $type ]/$connectedPowerkWp ;
 					}
+				}
+				if ( $normalized ) {
+					$value = array_sum( $val )/count($val);
 				}
 				$result[0]['data'][] = array ( $minData ['timestamp'], $value );
 			}	
@@ -317,11 +324,7 @@ class Solarlog_model extends CI_Model {
 				$result[0]['energy'][] = array ( $power[0], $energy );
 			}
 			if ( !$combined ) {
-	//      else {
-	// not combined, show all inverters!!!!
-	// FIXME!
-	//	  $result['data'][] = array ( rand ( 0, 10000 ), rand( 0, 5000 ) );
-	//
+				// then maybe iterate over each inverter...
 				$counter = 1;
 				foreach ( $this->InverterInfo as $inverter ) {
 					$connectedPowerkWp = $inverter->ConnectedPower/1000;

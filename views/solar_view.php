@@ -13,6 +13,36 @@
 
 var chart;
 
+	var strings = [ [1,1,2,7,7,7,7,7,7,8,8,8,8],
+					[1,1,2,7,7,7,7,7,7,8,8,8,8],
+					[1,1,2,7,7,7,0,0,8,8,8,8,8],
+					[5,5,2,3,3,0,0,0,8,8,6,6,6],
+					[5,5,2,3,3,0,0,0,0,4,6,6,6],
+					[5,5,2,3,0,0,0,0,0,4,4,6,6],
+					[5,5,5,3,0,0,0,0,0,4,4,6,6],
+					[5,5,5,0,0,0,0,0,0,0,4,6,6],
+					];
+	
+	var stringsOnInverter = { 	0 : "none",
+								1 : "3A",
+								2 : "3B",
+								3 : "1A",
+								4 : "1B",
+								5 : "2A",
+								6 : "2B",
+								7 : "4A",
+								8 : "4B"	
+	};
+	var inverters = [	 "Gesamt pac(W)",
+						 "QS3200/Pro(W)",
+						 "XS6500(W)",
+						 "QS3500(W)",
+						 "Powador7200xi(W)",
+						 "Powador4202DE(W)"
+		
+	];
+
+
 var chartOptions = {
 	chart: {
 		renderTo: 'chart',
@@ -40,6 +70,38 @@ var chartOptions = {
 		y: 45,
 		borderWidth: 1
     },
+    plotOptions: {
+		series: {
+			events: {
+				mouseOver: function() {
+					var inverter = inverters.indexOf (  this.name );
+					$( ".solarpanel-" + inverter ).css("border-color", "#ff0000");
+				},
+				mouseOut: function() {
+					var inverter = inverters.indexOf (  this.name );
+					$( ".solarpanel-" + inverter ).css("border-color", "grey");
+				}
+			}
+		},
+		column: {
+			stickyTracking: false,
+			events: {
+				mouseOver: function() {
+					console.log ( "mouseover " + this.name );	
+
+					var inverter = inverters.indexOf (  this.name );
+					$( ".solarpanel-" + inverter ).css("border-color", "#ff0000");
+				},
+				mouseOut: function() {
+					console.log ( "mouseout " + this.name );	
+
+					var inverter = inverters.indexOf (  this.name );
+					$( ".solarpanel-" + inverter ).css("border-color", "grey");
+				}
+			}
+			
+		}
+	}
 };
 
 var datepickerOptions = {
@@ -109,7 +171,7 @@ function drawChart ( dateText ) {
 	var energyIsChecked = $('#energy:checked').val()?true:false;
 	var monthlyIsChecked = $('#monthly:checked').val()?true:false;  
 	if( divertedIsChecked ){
-    	combined = 0;
+    	combined = 0;    	    	
 	}
 	else {
 		combined = 1;
@@ -128,7 +190,13 @@ function drawChart ( dateText ) {
 	}
 	if ( monthlyIsChecked ) {
 		// Remove red as a leading color
-		var colors = new Array( '#008800', '#00FFFF', '#00FF00', '#0000FF', '#000000', '#ffad40' );  
+		if ( divertedIsChecked ) {
+			var colors = new Array( '#00FFFF', '#00FF00', '#0000FF', '#000000', '#ffad40' );  
+		}
+		else {
+			var colors = new Array( '#00BB00' );
+			
+		}
 		// Disable energy and normalization
 		$("#normalize").attr("disabled", true );
 		$("#energy").attr("disabled", true );
@@ -341,8 +409,79 @@ function drawChart ( dateText ) {
 	} // End else if monthlyIsChecked
 } // End function drawChart
 
+function createTable(){
+
+	var colors = {	"none" : "#FFFFFF",
+					"1A" : "#00FFFF",
+					"1B" : "#00BBFF",
+					"2A" : "#00FF00",
+					"2B" : "#00BB00",
+					"3A" : "#0000FF",
+					"3B" : "#0000CC",
+					"4A" : "#666666",
+					"4B" : "#999999",
+					"5"  : "#ffad40"
+	}	
+	
+	var classes = [ "none", "1a", "1b", "2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b" ];
+
+	// 1: QS3200 	#00FFFF
+	// 2: XS6500	#00FF00
+	// 3: QS3500	#0000FF
+	// 4: PW 7200	#000000
+	// 5: PW 4202	#FFAD40
+
+    $("#strings").append( 'S&uuml;ddach' );
+
+    var stbl  = document.createElement('table');
+	stbl.setAttribute("class", "stringtable");
+    stbl.style.width='100%'
+    stbl.style.border = "1px solid black";
+
+	// Sueddach
+    for( var i = 0; i < 8; i++ ){
+        var tr = stbl.insertRow(-1);
+        for(var j = 0; j < 13; j++){
+                var td = tr.insertCell(-1);
+                td.appendChild(document.createTextNode(' '))
+				td.setAttribute( "id", "td" + pad( j, 2 ) + pad ( i, 2 ) );
+				td.style.backgroundColor = colors [ stringsOnInverter [ strings[i][j] ] ];
+				td.setAttribute( "class", "solarpanel solarpanel-" + stringsOnInverter [ strings[i][j] ].substr( 0, 1 ) );
+				if ( strings[i][j] == 0 ) {
+					td.style.borderColor = "#FFFFFF";
+				}
+        }
+    }
+    $("#strings").append(stbl);
+
+    
+    var ntbl  = document.createElement('table');
+	ntbl.setAttribute("class", "stringtable");
+    ntbl.style.width='100%'
+    ntbl.style.border = "1px solid black";
+    
+    $("#strings").append( 'Norddach' );
+    // Norddach
+    for ( var i = 0; i < 2; i++ ) {
+        var tr = ntbl.insertRow(-1);
+        for(var j = 0; j < 16; j++){
+                var td = tr.insertCell(-1);
+                td.appendChild(document.createTextNode(' '))
+				td.setAttribute( "id", "td" + pad( j, 2 ) + pad ( i, 2 ) );
+				td.style.height = "14px";
+				td.style.backgroundColor = colors [ 5 ];
+				td.setAttribute( "class", "solarpanel solarpanel-5" );
+        }	    
+    }
+   
+    $("#strings").append(ntbl);
+
+}
+
 		
 $(function () {
+	createTable();
+
 	//override the existing _goToToday functionality
 	$.datepicker._gotoTodayOriginal = $.datepicker._gotoToday;
 	$.datepicker._gotoToday = function(id) {
@@ -373,7 +512,6 @@ $(function () {
 
 </head>
 <body>
-	<h1>Photovoltaikanlage Scheune Wambach</h1>
 	<div id="menu">
 		<div id="navigation">
 			<div id="datepicker"></div>
@@ -395,14 +533,21 @@ $(function () {
 					<input type="checkbox" id="energy" class="filter" /><label for="energy">Ertrag anzeigen</label>
 				</div>
 			</div>
+			<br />
+			<div id="strings" class="ui-widget ui-widget-content ui-helper-clearfix ui-corner-all controls">
+				<div id="strings-header" class="ui-datepicker-header ui-widget-header ui-helper-clearfix ui-corner-all controls-header">
+					Strings
+				</div>
+			</div>
 		</div>  <!-- End div navigation -->
 	</div>   <!-- End div menu -->
-
-	<div id="content">
-		<div id="chart"  style="min-width: 310px; height: 600px; margin: 0 auto"></div>
+	<div id="header">
+		<h1>Photovoltaikanlage Scheune Wambach</h1>
 	</div>
 
-	<p class="footer">Page rendered in <strong>{elapsed_time}</strong> seconds</p>
+	<div id="content">
+		<div id="chart"></div>
+	</div>
 
 
 </body>
