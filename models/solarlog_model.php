@@ -259,7 +259,7 @@ class Solarlog_model extends CI_Model {
 				$ret = array_map(function () {
 					return array_sum(func_get_args());
 				}, $ret, $datarray);
-				$name[0] = "Energy";
+				$name[0] = "Energie gesamt";
 			}		
 			return ( array( $name, $cat, array( $ret ), $datestr ) );
 		}

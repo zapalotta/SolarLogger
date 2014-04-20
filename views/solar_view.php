@@ -5,9 +5,11 @@
    <title>Solaranlage Scheune Wambach</title>
    <link rel="stylesheet" href="/css/main.css">
    <link rel="stylesheet" href="/js/jquery-ui-1.10.3.custom/css/smoothness/jquery-ui-1.10.3.custom.min.css" /> 
+   <link href="/js/lightbox/css/lightbox.css" rel="stylesheet" />
 
    <script src="/js/jquery-1.10.2.min.js"></script>
    <script src="/js/jquery-ui-1.10.3.custom/js/jquery-ui-1.10.3.custom.min.js"></script>
+   <script src="/js/lightbox/js/lightbox.min.js"></script>
    <script type="text/javascript" src="/hc/js/highcharts.js"></script>
    <script type="text/javascript">
 
@@ -110,6 +112,7 @@ var datepickerOptions = {
     changeMonth: true,
     changeYear: true,
     maxDate: 0,
+    firstDay: 1,
     buttonImage: "calendar.gif",
     showButtonPanel: true,
     buttonImageOnly: true,
@@ -166,10 +169,12 @@ function drawChart ( dateText ) {
 	var normalize = 0;
 	var energy = 0;
 	var monthly = 0;
+	var fixy = 0;
 	var divertedIsChecked = $('#diverted:checked').val()?true:false;
 	var normalizeIsChecked = $('#normalize:checked').val()?true:false;
 	var energyIsChecked = $('#energy:checked').val()?true:false;
 	var monthlyIsChecked = $('#monthly:checked').val()?true:false;  
+	var fixyIsChecked = $('#fixy:checked').val()?true:false;  
 	if( divertedIsChecked ){
     	combined = 0;    	    	
 	}
@@ -181,6 +186,12 @@ function drawChart ( dateText ) {
 	}
 	else {
 		normalize = 0;
+	}
+	if( fixyIsChecked ){
+		fixy = 1;
+	}
+	else {
+		fixy = 0;
 	}
 	if( energyIsChecked ){
 		energy = 1;
@@ -247,6 +258,17 @@ function drawChart ( dateText ) {
                     }
                 }
 			});
+			if ( fixy == 1 ) {
+				chart.yAxis[0].update( {
+					max:160000
+				});
+			}
+			else {
+				chart.yAxis[0].update( {
+					max:null
+				});
+			}
+
 			// Hide secondary yAxis
 			chart.yAxis[1].update({
 				labels: {
@@ -270,7 +292,7 @@ function drawChart ( dateText ) {
 				// jSeries[2]: Array of Arrays of Values (one Array per Inverter)
 				// jSeries[3]: Date
 				var datestr = jSeries[3]+"";
-				chart.setTitle({ text: datestr.substr( 2, 2 ) + " 20" + datestr.substr( 0, 2) }, { text: 'Monthly production' } ) ;
+				chart.setTitle({ text: datestr.substr( 2, 2 ) + " 20" + datestr.substr( 0, 2) }, { text: 'Produktion im Monat' } ) ;
 				// Add the x axis tickmarks
 				chart.xAxis[0].update ( { categories: json2array( jSeries[1][0] ) } );					
 				$.each( jSeries[2], function ( index, value )  {
@@ -318,7 +340,7 @@ function drawChart ( dateText ) {
 				timeStr +': '+ Math.round(this.y * 10) / 10;
 			}
 
-			chart.setTitle({ text: $.datepicker.formatDate("dd.mm.y", $('#datepicker').datepicker("getDate"))}, { text: 'Daily production' } ) ;
+			chart.setTitle({ text: $.datepicker.formatDate("dd.mm.y", $('#datepicker').datepicker("getDate"))}, { text: 'Tagesproduktion' } ) ;
 			// Iterate over the json object
 			$.each ( json, function ( index, jSeries ) {
 				// array to store the series data
@@ -331,6 +353,16 @@ function drawChart ( dateText ) {
 						text: 'Watt'
 					},
 				});
+				if ( fixy == 1 ) {
+					chart.yAxis[0].update( {
+						max:20000
+					});
+				}
+				else {
+					chart.yAxis[0].update( {
+						max:null
+					});
+				}
 				// show energy!
 				if ( energy == 1 ) {
 					if ( chart.series.length == 0 ) {
@@ -430,8 +462,30 @@ function createTable(){
 	// 3: QS3500	#0000FF
 	// 4: PW 7200	#000000
 	// 5: PW 4202	#FFAD40
+	
+	var ntbl  = document.createElement('table');
+	ntbl.setAttribute("class", "stringtable");
+    ntbl.style.width='100%'
+    ntbl.style.border = "1px solid black";
+    
+    $("#strings").append( '<span>Norddach</span>' );
+    // Norddach
+    for ( var i = 0; i < 2; i++ ) {
+        var tr = ntbl.insertRow(-1);
+        for(var j = 0; j < 16; j++){
+                var td = tr.insertCell(-1);
+                td.appendChild(document.createTextNode(' '))
+				td.setAttribute( "id", "td" + pad( j, 2 ) + pad ( i, 2 ) );
+				td.style.height = "14px";
+				td.style.backgroundColor = colors [ 5 ];
+				td.setAttribute( "class", "solarpanel solarpanel-5" );
+        }	    
+    }
+   
+    $("#strings").append(ntbl);
 
-    $("#strings").append( 'S&uuml;ddach' );
+
+    $("#strings").append( "<span>S&uuml;ddach</span><a href=\"/img/pvscheune.jpg\" data-lightbox=\"image-1\"><span class=\"ui-icon ui-icon-newwin helptext\" title=\"Foto\"></span></a>" );
 
     var stbl  = document.createElement('table');
 	stbl.setAttribute("class", "stringtable");
@@ -452,36 +506,34 @@ function createTable(){
 				}
         }
     }
+
     $("#strings").append(stbl);
-
     
-    var ntbl  = document.createElement('table');
-	ntbl.setAttribute("class", "stringtable");
-    ntbl.style.width='100%'
-    ntbl.style.border = "1px solid black";
-    
-    $("#strings").append( 'Norddach' );
-    // Norddach
-    for ( var i = 0; i < 2; i++ ) {
-        var tr = ntbl.insertRow(-1);
-        for(var j = 0; j < 16; j++){
-                var td = tr.insertCell(-1);
-                td.appendChild(document.createTextNode(' '))
-				td.setAttribute( "id", "td" + pad( j, 2 ) + pad ( i, 2 ) );
-				td.style.height = "14px";
-				td.style.backgroundColor = colors [ 5 ];
-				td.setAttribute( "class", "solarpanel solarpanel-5" );
-        }	    
-    }
-   
-    $("#strings").append(ntbl);
-
 }
 
 		
 $(function () {
 	createTable();
-
+// Thanks: http://www.blogrammierer.de/jquery-ui-datepicker-in-deutscher-sprache/
+$.datepicker.regional['de'] = {clearText: 'löschen', clearStatus: 'aktuelles Datum löschen',
+                closeText: 'schließen', closeStatus: 'ohne Änderungen schließen',
+                prevText: '<zurück', prevStatus: 'letzten Monat zeigen',
+                nextText: 'Vor>', nextStatus: 'nächsten Monat zeigen',
+                currentText: 'heute', currentStatus: '',
+                monthNames: ['Januar','Februar','März','April','Mai','Juni',
+                'Juli','August','September','Oktober','November','Dezember'],
+                monthNamesShort: ['Jan','Feb','Mär','Apr','Mai','Jun',
+                'Jul','Aug','Sep','Okt','Nov','Dez'],
+                monthStatus: 'anderen Monat anzeigen', yearStatus: 'anderes Jahr anzeigen',
+                weekHeader: 'Wo', weekStatus: 'Woche des Monats',
+                dayNames: ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'],
+                dayNamesShort: ['So','Mo','Di','Mi','Do','Fr','Sa'],
+                dayNamesMin: ['So','Mo','Di','Mi','Do','Fr','Sa'],
+                dayStatus: 'Setze DD als ersten Wochentag', dateStatus: 'Wähle D, M d',
+                dateFormat: 'dd.mm.yy', firstDay: 1, 
+                initStatus: 'Wähle ein Datum', isRTL: false};
+ $.datepicker.setDefaults($.datepicker.regional['de']);
+ 
 	//override the existing _goToToday functionality
 	$.datepicker._gotoTodayOriginal = $.datepicker._gotoToday;
 	$.datepicker._gotoToday = function(id) {
@@ -505,6 +557,10 @@ $(function () {
 	// Create an initial chart
 	var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
 	drawChart ( datestr );
+	
+	$(".helptext").tooltip();
+
+	$("#strings-header").tooltip();
 
 });
         
@@ -521,23 +577,43 @@ $(function () {
 					Ansicht
 				</div>
 				<div class="format">
-					<input type="checkbox" id="monthly" class="filter" /><label for="diverted">Monatswerte</label>
+					<input type="checkbox" id="monthly" class="filter" /><label for="diverted">Monatswerte</label><span class="ui-icon ui-icon-comment helptext" title="Daten monatsweise anzeigen"></span>
 				</div>
 				<div class="format">
-					<input type="checkbox" id="diverted" class="filter" /><label for="diverted">Wechselrichter einzeln</label>
+					<input type="checkbox" id="diverted" class="filter" /><label for="diverted">Wechselrichter einzeln</label><span class="ui-icon ui-icon-comment helptext" title="Einzelnen Graphen f&uuml;r jeden Wechselrichter anzeigen"></span>
 				</div>
 				<div class="format">
-					<input type="checkbox" id="normalize" class="filter" /><label for="normalize">Normalisieren</label>
+					<input type="checkbox" id="fixy" class="filter" /><label for="fixy">Y-Achse fixieren</label><span class="ui-icon ui-icon-comment helptext" title="H&ouml;he der Y-Achse f&uuml;r bessere Vergleichbarkeit fixieren" ></span>
 				</div>
 				<div class="format">
-					<input type="checkbox" id="energy" class="filter" /><label for="energy">Ertrag anzeigen</label>
+					<input type="checkbox" id="normalize" class="filter" /><label for="normalize">Normalisieren</label><span class="ui-icon ui-icon-comment helptext" title="Graphen auf eine Anlagengr&ouml;sse von 1kW Peak normalisieren (Nur bei Tagesansicht)"></span>
+				</div>
+				<div class="format">
+					<input type="checkbox" id="energy" class="filter" /><label for="energy">Ertrag anzeigen</label><span class="ui-icon ui-icon-comment helptext" title="Verlauf der produzierten Energie am Tag anzeigen" ></span>
 				</div>
 			</div>
 			<br />
 			<div id="strings" class="ui-widget ui-widget-content ui-helper-clearfix ui-corner-all controls">
 				<div id="strings-header" class="ui-datepicker-header ui-widget-header ui-helper-clearfix ui-corner-all controls-header">
-					Strings
+					Strings<span class="ui-icon ui-icon-comment helptext" title="Darstellung der verschalteten Solarmodule ('Strings') auf den Dachteilen. In der Tagesansicht werden die einzelnen Strings beim ausw&auml;hlen des Graphen des jeweiligen Wechselrichters hervorgehoben. Weisse Felder markieren L&uuml;cken im Modulfeld durch die Gaube, siehe Foto."></span>
 				</div>
+			</div>
+			<br />
+			<div id="links" class="ui-widget ui-widget-content ui-helper-clearfix ui-corner-all controls">
+				<div id="links-header" class="ui-datepicker-header ui-widget-header ui-helper-clearfix ui-corner-all controls-header">
+					Links
+				</div>
+				<div class="links">
+					&copy; Dirk D&ouml;rflinger, <a href="http://www.doerflinger.org" target="_blank">www.doerflinger.org</a>
+				</div>
+				<div class="links">
+					Code on GitHub: <a href="https://github.com/zapalotta/SolarLogger" target="_blank">github.com/zapalotta/SolarLogger</a>
+				</div>
+				<div class="links">
+					Uses <a href="http://ellislab.com/codeigniter" target="_blank">CodeIgniter</a>
+				</div>
+				
+				
 			</div>
 		</div>  <!-- End div navigation -->
 	</div>   <!-- End div menu -->
