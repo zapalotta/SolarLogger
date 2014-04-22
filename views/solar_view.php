@@ -8,6 +8,8 @@
    <link href="/js/lightbox/css/lightbox.css" rel="stylesheet" />
 
    <script src="/js/jquery-1.10.2.min.js"></script>
+   <script src="/js/jquery.plugin.min.js"></script>
+   <script src="/js/jquery.timer.min.js"></script>
    <script src="/js/jquery-ui-1.10.3.custom/js/jquery-ui-1.10.3.custom.min.js"></script>
    <script src="/js/lightbox/js/lightbox.min.js"></script>
    <script type="text/javascript" src="/hc/js/highcharts.js"></script>
@@ -379,6 +381,17 @@ function drawChart ( dateText ) {
 							text: 'kWh'
 						}
 					});
+					if ( fixy == 1 ) {
+						chart.yAxis[1].update( {
+							max:160
+						});
+					}
+					else {
+						chart.yAxis[1].update( {
+							max:null
+						});
+					}
+
 				} // END add energy data!
 				else {
 					// Hide secondary yAxis
@@ -513,9 +526,19 @@ function createTable(){
 
 		
 $(function () {
+	
+	$('#content').timer({
+		delay: 60000,
+		repeat: true,
+		autostart: $('#live:checked').val(),
+		callback: function( index ) {
+			drawChart ( $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate")) );
+		}
+	});
+	
 	createTable();
-// Thanks: http://www.blogrammierer.de/jquery-ui-datepicker-in-deutscher-sprache/
-$.datepicker.regional['de'] = {clearText: 'löschen', clearStatus: 'aktuelles Datum löschen',
+	// Thanks: http://www.blogrammierer.de/jquery-ui-datepicker-in-deutscher-sprache/
+	$.datepicker.regional['de'] = {clearText: 'löschen', clearStatus: 'aktuelles Datum löschen',
                 closeText: 'schließen', closeStatus: 'ohne Änderungen schließen',
                 prevText: '<zurück', prevStatus: 'letzten Monat zeigen',
                 nextText: 'Vor>', nextStatus: 'nächsten Monat zeigen',
@@ -561,6 +584,15 @@ $.datepicker.regional['de'] = {clearText: 'löschen', clearStatus: 'aktuelles Da
 	$(".helptext").tooltip();
 
 	$("#strings-header").tooltip();
+	
+	$("#live").change( function () {
+		if ( $('#live:checked').val()  ) {
+			$('#content').timer( 'start' );
+		}
+		else {
+			$('#content').timer( 'stop' );
+		}
+	});
 
 });
         
@@ -590,6 +622,9 @@ $.datepicker.regional['de'] = {clearText: 'löschen', clearStatus: 'aktuelles Da
 				</div>
 				<div class="format">
 					<input type="checkbox" id="energy" class="filter" /><label for="energy">Ertrag anzeigen</label><span class="ui-icon ui-icon-comment helptext" title="Verlauf der produzierten Energie am Tag anzeigen" ></span>
+				</div>
+				<div class="format">
+					<input type="checkbox" id="live" class="filter" /><label for="live">Automatisch aktualisieren</label><span class="ui-icon ui-icon-comment helptext" title="Grafik automatisch jede Minute aktualisieren (Daten vom Logger k&ouml;nnten sich seltener aktualisieren" ></span>
 				</div>
 			</div>
 			<br />
