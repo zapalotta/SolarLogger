@@ -210,20 +210,27 @@ function drawChart ( dateText ) {
 			var colors = new Array( '#00BB00' );
 			
 		}
-		// Disable energy and normalization
+		// Disable energy and normalization, stop autoreload
+		$('#content').timer( 'stop' );
+
 		$("#normalize").attr("disabled", true );
 		$("#energy").attr("disabled", true );
+		$("#live").attr("disabled", true );
 		$("#normalize").removeAttr("checked");
 		$("#energy").removeAttr("checked");
+		$("#live").removeAttr("checked");
 		$("label[for='normalize']").css('color', '#DDDDD');
 		$("label[for='energy']").css('color', '#DDDDD');
+		$("label[for='live']").css('color', '#DDDDD');
 	}
 	else {
 		var colors = new Array( '#FF0000', '#008800', '#00FFFF', '#00FF00', '#0000FF', '#000000', '#ffad40' );  
 		$("#normalize").removeAttr("disabled");
 		$("#energy").removeAttr("disabled");
+		$("#live").removeAttr("disabled");
 		$("label[for='normalize']").css('color', '#000000');
 		$("label[for='energy']").css('color', '#000000');
+		$("label[for='live']").css('color', '#000000');
 	}
 	
 	if ( monthlyIsChecked ) {
