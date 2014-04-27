@@ -15,7 +15,7 @@
 	    left: 0;
 	    min-height: 99%;
 	    padding-bottom: 3em;
-	    padding-top: 53px;
+	    padding-top: 3px;
 	    position: absolute;
 	    width: 280px;
 	    float: left;
@@ -24,12 +24,15 @@
 	#content {
 	    border: medium none;
 	    background-color: #FFFFFF;
-	    left: 280px;
+	    left: 280px; 
 	    padding: 0;
 	    position: absolute;
 	    width: 80%;
 	}
 
+	#explain {
+		margin-left: 20px;
+	}
 	.helptext {
 		float:right;
 	}
