@@ -5,14 +5,17 @@
    <title>Solaranlage Scheune Wambach</title>
    <link rel="stylesheet" href="/css/main.css">
    <link rel="stylesheet" href="/js/jquery-ui-1.10.3.custom/css/smoothness/jquery-ui-1.10.3.custom.min.css" /> 
-   <link href="/js/lightbox/css/lightbox.css" rel="stylesheet" />
+   <link href="/js/lightbox/css/lightbox.css" rel="stylesheet" />   
+   
 
    <script src="/js/jquery-1.10.2.min.js"></script>
+   <script src="/js/jquery-ui-1.10.3.custom/js/jquery-ui-1.10.3.custom.min.js"></script>
    <script src="/js/jquery.plugin.min.js"></script>
    <script src="/js/jquery.timer.min.js"></script>
-   <script src="/js/jquery-ui-1.10.3.custom/js/jquery-ui-1.10.3.custom.min.js"></script>
    <script src="/js/lightbox/js/lightbox.min.js"></script>
-   <script type="text/javascript" src="/hc/js/highcharts.js"></script>
+<!--   <script type="text/javascript" src="http://code.highcharts.com/highcharts.js"></script>-->
+   <script type="text/javascript" src="/js/highcharts.js"></script>
+   <script type="text/javascript" src="/js/draggable-legend.js"></script>
    <script type="text/javascript">
 
 var chart;
@@ -69,10 +72,21 @@ var chartOptions = {
 			}],
     legend: {
 		verticalAlign: 'top',
+		
+		borderRadius: 3,
+		backgroundColor: '#FFFFFF',
+		align: 'right',
+		layout: 'vertical',
 		floating: true,
-		x: 90,
-		y: 45,
-		borderWidth: 1
+		draggable: true,
+		x: -10,
+		y: 25,
+		borderWidth: 1,
+		zIndex: 20,
+		title: {
+				fontSize: '56px',
+                text: '↔'
+            },
     },
     plotOptions: {
 		series: {
@@ -531,11 +545,34 @@ function createTable(){
     
 }
 
+function elementResize() {
+    var browserWidth = $(window).width();
+    if ((browserWidth) < "1024"){
+        $("body").addClass("less1024");
+        $("body").removeClass("over1024");
+    } else {
+        $("body").addClass("over1024");
+        $("body").removeClass("less1024");
+    }
+}
+
 		
 $(function () {
 	
+	elementResize();
+
+    $(window).bind("resize", function(){
+        elementResize();
+    });
+	
+	 $( "#explain" ).accordion({
+      collapsible: true,
+      event: "click hoverintent",
+      active: false
+    });
+    
 	$('#content').timer({
-		delay: 60000,
+		delay: 300000,
 		repeat: true,
 		autostart: $('#live:checked').val(),
 		callback: function( index ) {
@@ -588,6 +625,7 @@ $(function () {
 	var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
 	drawChart ( datestr );
 	
+	
 	$(".helptext").tooltip();
 
 	$("#strings-header").tooltip();
@@ -600,6 +638,10 @@ $(function () {
 			$('#content').timer( 'stop' );
 		}
 	});
+	
+//	$("#toggle").click( function () {
+//		$("#menu").hide();
+//	});
 
 });
         
@@ -607,6 +649,7 @@ $(function () {
 
 </head>
 <body>
+<!--	<a href="#" id="toggle">Toggle</a>-->
 	<div id="menu">
 		<div id="navigation">
 			<div id="datepicker"></div>
@@ -658,14 +701,44 @@ $(function () {
 				
 			</div>
 		</div>  <!-- End div navigation -->
-	</div>   <!-- End div menu -->
+	</div>  <!-- End div menu -->
 	<div id="header">
-		<h1>Photovoltaikanlage Scheune Wambach</h1>
+		<h1>Photovoltaikanlage Scheune Wambach</span></fh1>
 	</div>
 
 	<div id="content">
 		<div id="chart"></div>
+		<div id="explain">
+		<h3>Mehr Informationen</h3>
+		<div>
+		Die Darstellung als Linie zeigt die elektrische Leistung, die die Solaranlage im Laufe des gew&auml;hlten Tages geliefert hat. Zus&auml;tzlich kann auch der Ertrag (also die produzierte elektrische Energie) angezeigt werden. <br />
+		Die rote Kurve (Pac) zeigt die Summe der Leistung aller Anlagenteile, w&auml;hrend die (optional eingeblendeten) bunten Linien den Ertrag der einzelnen Wechselrichter darstellt.<br />
+		Die Monatsdarstellung zeigt in Balkenform die elektrische Energie, die pro Tag produziert und ins Stromnetz eingespeist wurde.<br />
+		Die Grafik links unten zeigt schematisch den Aufbau der Anlage aus den einzelnen Solarmodulen ($quot;Panels$quot;). Diese Module sind gruppenweise zu sogenannten &quot;Strings&quot; zusammengeschlossen, diese Strings wiederum in meinem Fall in in Zweierpaaren an die sogenannten Wechselrichter angeschlossen. <br />
+		Die Wechselrichter sind elektronische Ger&auml;te, welche den von den Solarmodulen gelieferten Strom so anpassen, dass er in das allgemeine Stromnetz fliessen kann. <br />
+		Es handelt sich bei den einzelnen Wechselrichtern um unterschiedliche Ger&auml;te mit unterschiedlicher Leistung, weswegen auch teilweise eine unterschiedliche Anzahl an Modulen an die Wechselrichter angeschlossen sind. Um die Leistung der Wechselrichter dennoch vergleichen zu k&ouml;nnen, lassen sich die Kurven normalisieren, jeder Anlagenteil wird so betrachtet, als w&auml;re er genau 1kWp gross. Im idealfall m&uuml;ssten alle normalisierten Kurven deckungsgleich &uuml;bereinander liegen. Der Idealfall wird in der Praxis freilich nicht erreicht, u.a. weil manche Module teilweise verschattet werden (siehe Foto) und auch die Wechselrichter leicht unterschiedlich arbeiten.
+		<br />
+		Die Orange Kurve zeigt ebenso wie die orangefarbigen Module im Schema links den Anlagenteil auf dem Norddach. Sie erreicht mangels direkter Sonneneinstrahlung nur ca. 2/3 der Leistung (normalisiert) der S&uuml;danlage, dies wird z.B. am 05.08.2013 deutlich.
+	 Bei sehr geringer Leistung (Regentag) liefert sie allerdings in etwa gleich viel wie die S&uuml;danlage.  
+		</div>
+		</div>
 	</div>
+	
+<!-- Piwik -->
+<script type="text/javascript">
+  var _paq = _paq || [];
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u=(("https:" == document.location.protocol) ? "https" : "http") + "://piwik.doerflinger.org/";
+    _paq.push(['setTrackerUrl', u+'piwik.php']);
+    _paq.push(['setSiteId', 5]);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0]; g.type='text/javascript';
+    g.defer=true; g.async=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script>
+<noscript><p><img src="http://piwik.doerflinger.org/piwik.php?idsite=5" style="border:0;" alt="" /></p></noscript>
+<!-- End Piwik Code -->
 
 
 </body>
