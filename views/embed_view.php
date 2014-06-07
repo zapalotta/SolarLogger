@@ -104,8 +104,8 @@ function pad( num, size ) {
  */
 function dateFromString(str) {
   var m = str.match(/(\d+).(\d+).(\d+)\s+(\d+):(\d+):(\d+)/);
-  // NOTICE: +1h due to timezone miscalculation
-  return new Date("20"+m[3], +m[2] - 1, +m[1], +m[4] + 1, +m[5], +m[6] * 100);
+  // NOTICE: +2h due to timezone miscalculation
+  return new Date("20"+m[3], +m[2] - 1, +m[1], +m[4] + 2, +m[5], +m[6] * 100);
 }
 
 /*

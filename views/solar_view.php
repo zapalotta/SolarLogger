@@ -13,7 +13,6 @@
    <script src="/js/jquery.plugin.min.js"></script>
    <script src="/js/jquery.timer.min.js"></script>
    <script src="/js/lightbox/js/lightbox.min.js"></script>
-<!--   <script type="text/javascript" src="http://code.highcharts.com/highcharts.js"></script>-->
    <script type="text/javascript" src="/js/highcharts.js"></script>
    <script type="text/javascript" src="/js/draggable-legend.js"></script>
    <script type="text/javascript">
@@ -28,7 +27,7 @@ var chart;
 					[5,5,2,3,0,0,0,0,0,4,4,6,6],
 					[5,5,5,3,0,0,0,0,0,4,4,6,6],
 					[5,5,5,0,0,0,0,0,0,0,4,6,6],
-					];
+				   ];
 	
 	var stringsOnInverter = { 	0 : "none",
 								1 : "3A",
@@ -103,19 +102,17 @@ var chartOptions = {
 		},
 		column: {
 			stickyTracking: false,
+			point: {
 			events: {
 				mouseOver: function() {
-					console.log ( "mouseover " + this.name );	
-
-					var inverter = inverters.indexOf (  this.name );
+					var inverter = inverters.indexOf (  this.series.name + '(W)' );
 					$( ".solarpanel-" + inverter ).css("border-color", "#ff0000");
 				},
 				mouseOut: function() {
-					console.log ( "mouseout " + this.name );	
-
-					var inverter = inverters.indexOf (  this.name );
+					var inverter = inverters.indexOf (  this.series.name + '(W)' );
 					$( ".solarpanel-" + inverter ).css("border-color", "grey");
 				}
+			}
 			}
 			
 		}
@@ -158,8 +155,8 @@ function pad( num, size ) {
  */
 function dateFromString(str) {
   var m = str.match(/(\d+).(\d+).(\d+)\s+(\d+):(\d+):(\d+)/);
-  // NOTICE: +1h due to timezone miscalculation
-  return new Date("20"+m[3], +m[2] - 1, +m[1], +m[4] + 1, +m[5], +m[6] * 100);
+  // NOTICE: +2h due to timezone miscalculation
+  return new Date("20"+m[3], +m[2] - 1, +m[1], +m[4] + 2, +m[5], +m[6] * 100);
 }
 
 /*
@@ -215,6 +212,7 @@ function drawChart ( dateText ) {
 	else {
 		energy = 0;
 	}
+
 	if ( monthlyIsChecked ) {
 		// Remove red as a leading color
 		if ( divertedIsChecked ) {
@@ -246,7 +244,7 @@ function drawChart ( dateText ) {
 		$("label[for='energy']").css('color', '#000000');
 		$("label[for='live']").css('color', '#000000');
 	}
-	
+
 	if ( monthlyIsChecked ) {
 		// Month graph
 		$.getJSON( '/index.php/solar/month_ajax', {
@@ -305,9 +303,9 @@ function drawChart ( dateText ) {
 			// Set the formatter to add a total value
 			chart.tooltip.options.formatter = function() {
 				return '<b>'+ this.series.name +'</b><br/>' +
-				this.x +': '+ Math.round(this.y / 1000) + 'kWh<br/>' +
+				this.x +'</a>: '+ Math.round(this.y / 1000) + 'kWh<br/>' +
 				'Total: '+ Math.round( this.point.stackTotal/1000 ) + 'kWh';
-			}
+			}			
 			// iterate over the data
 			$.each ( json, function ( index, jSeries ) {
 				// jSeries[0]: Array of Names 
@@ -315,7 +313,8 @@ function drawChart ( dateText ) {
 				// jSeries[2]: Array of Arrays of Values (one Array per Inverter)
 				// jSeries[3]: Date
 				var datestr = jSeries[3]+"";
-				chart.setTitle({ text: datestr.substr( 2, 2 ) + " 20" + datestr.substr( 0, 2) }, { text: 'Produktion im Monat' } ) ;
+				chart.setTitle({ text: $.datepicker.formatDate("M yy", $.datepicker.parseDate ( "ymd", dateText ) ) }, { text: 'Produktion im Monat' } ) ;
+//				chart.setTitle({ text: $.datepicker.formatDate("M yy", $('#datepicker').datepicker("getDate")) }, { text: 'Produktion im Monat' } ) ;
 				// Add the x axis tickmarks
 				chart.xAxis[0].update ( { categories: json2array( jSeries[1][0] ) } );					
 				$.each( jSeries[2], function ( index, value )  {
@@ -325,6 +324,14 @@ function drawChart ( dateText ) {
 						color: colors[ chart.series.length ],
 						type: 'column',
 						stacking: 'normal',
+						events: {
+							click: function(event) {
+								var dateStr = event.point.category;
+								$('#datepicker').datepicker("setDate", new Date( '20' + dateStr.substr(6, 2) + '-' + dateStr.substr(3, 2) + '-' + dateStr.substr(0, 2) ) );
+								$("#monthly").attr("checked", false );
+								drawChart( dateStr.substr(6, 2) + dateStr.substr(3, 2) + dateStr.substr(0, 2) );
+							}
+						}
 					});
 				});
 			});
@@ -550,9 +557,13 @@ function elementResize() {
     if ((browserWidth) < "1024"){
         $("body").addClass("less1024");
         $("body").removeClass("over1024");
+        $("#menu").addClass("dynamic");
+        $("#menu").removeClass("fix");
     } else {
         $("body").addClass("over1024");
         $("body").removeClass("less1024");
+        $("#menu").addClass("fix");
+        $("#menu").removeClass("dynamic");
     }
 }
 
@@ -599,7 +610,7 @@ $(function () {
                 dayStatus: 'Setze DD als ersten Wochentag', dateStatus: 'Wähle D, M d',
                 dateFormat: 'dd.mm.yy', firstDay: 1, 
                 initStatus: 'Wähle ein Datum', isRTL: false};
- $.datepicker.setDefaults($.datepicker.regional['de']);
+	$.datepicker.setDefaults($.datepicker.regional['de']);
  
 	//override the existing _goToToday functionality
 	$.datepicker._gotoTodayOriginal = $.datepicker._gotoToday;
@@ -616,6 +627,7 @@ $(function () {
     $(".filter").change(function () {
       var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
       drawChart ( datestr );
+
     });
     
 	// Initialize Chart
@@ -629,6 +641,7 @@ $(function () {
 	$(".helptext").tooltip();
 
 	$("#strings-header").tooltip();
+	
 	
 	$("#live").change( function () {
 		if ( $('#live:checked').val()  ) {
@@ -650,7 +663,7 @@ $(function () {
 </head>
 <body>
 <!--	<a href="#" id="toggle">Toggle</a>-->
-	<div id="menu">
+	<div id="menu" class="fix">
 		<div id="navigation">
 			<div id="datepicker"></div>
 			<br />
@@ -659,7 +672,7 @@ $(function () {
 					Ansicht
 				</div>
 				<div class="format">
-					<input type="checkbox" id="monthly" class="filter" /><label for="diverted">Monatswerte</label><span class="ui-icon ui-icon-comment helptext" title="Daten monatsweise anzeigen"></span>
+					<input type="checkbox" id="monthly" class="filter" /><label for="monthly">Monatswerte</label><span class="ui-icon ui-icon-comment helptext" title="Daten monatsweise anzeigen"></span>
 				</div>
 				<div class="format">
 					<input type="checkbox" id="diverted" class="filter" /><label for="diverted">Wechselrichter einzeln</label><span class="ui-icon ui-icon-comment helptext" title="Einzelnen Graphen f&uuml;r jeden Wechselrichter anzeigen"></span>
@@ -711,15 +724,18 @@ $(function () {
 		<div id="explain">
 		<h3>Mehr Informationen</h3>
 		<div>
-		Die Darstellung als Linie zeigt die elektrische Leistung, die die Solaranlage im Laufe des gew&auml;hlten Tages geliefert hat. Zus&auml;tzlich kann auch der Ertrag (also die produzierte elektrische Energie) angezeigt werden. <br />
+		<h4>Kurvendarstellung</h4>
+		Die Darstellung als Linie zeigt die elektrische Leistung, die die Solaranlage im Laufe des gew&auml;hlten <b>Tages</b> geliefert hat. Zus&auml;tzlich kann auch der Ertrag (also die produzierte elektrische Energie) angezeigt werden. <br />
 		Die rote Kurve (Pac) zeigt die Summe der Leistung aller Anlagenteile, w&auml;hrend die (optional eingeblendeten) bunten Linien den Ertrag der einzelnen Wechselrichter darstellt.<br />
 		Die Monatsdarstellung zeigt in Balkenform die elektrische Energie, die pro Tag produziert und ins Stromnetz eingespeist wurde.<br />
-		Die Grafik links unten zeigt schematisch den Aufbau der Anlage aus den einzelnen Solarmodulen ($quot;Panels$quot;). Diese Module sind gruppenweise zu sogenannten &quot;Strings&quot; zusammengeschlossen, diese Strings wiederum in meinem Fall in in Zweierpaaren an die sogenannten Wechselrichter angeschlossen. <br />
+		Die Grafik links unten zeigt schematisch den Aufbau der Anlage aus den einzelnen Solarmodulen (&quot;Panels&quot;). Diese Module sind gruppenweise zu sogenannten &quot;Strings&quot; zusammengeschlossen, diese Strings wiederum in meinem Fall in in Zweierpaaren an die sogenannten Wechselrichter angeschlossen. <br />
 		Die Wechselrichter sind elektronische Ger&auml;te, welche den von den Solarmodulen gelieferten Strom so anpassen, dass er in das allgemeine Stromnetz fliessen kann. <br />
 		Es handelt sich bei den einzelnen Wechselrichtern um unterschiedliche Ger&auml;te mit unterschiedlicher Leistung, weswegen auch teilweise eine unterschiedliche Anzahl an Modulen an die Wechselrichter angeschlossen sind. Um die Leistung der Wechselrichter dennoch vergleichen zu k&ouml;nnen, lassen sich die Kurven normalisieren, jeder Anlagenteil wird so betrachtet, als w&auml;re er genau 1kWp gross. Im idealfall m&uuml;ssten alle normalisierten Kurven deckungsgleich &uuml;bereinander liegen. Der Idealfall wird in der Praxis freilich nicht erreicht, u.a. weil manche Module teilweise verschattet werden (siehe Foto) und auch die Wechselrichter leicht unterschiedlich arbeiten.
 		<br />
 		Die Orange Kurve zeigt ebenso wie die orangefarbigen Module im Schema links den Anlagenteil auf dem Norddach. Sie erreicht mangels direkter Sonneneinstrahlung nur ca. 2/3 der Leistung (normalisiert) der S&uuml;danlage, dies wird z.B. am 05.08.2013 deutlich.
-	 Bei sehr geringer Leistung (Regentag) liefert sie allerdings in etwa gleich viel wie die S&uuml;danlage.  
+	 Bei sehr geringer Leistung (Regentag) liefert sie allerdings in etwa gleich viel wie die S&uuml;danlage.
+	 	<h4>Balkendarstellung</h4>
+	 	Die Balken stellen den Ertrag pro Tag im Verlauf des Monats dar. Der Ertrag (in kWh, Kilowattstunden) ist die Energie, die produziert und in das elektrische Netz eingespeist wurde, im Prinzip einfach die Umkehrung des Verbrauchs elektrischer Energie durch z.B. ein Haushaltsgerät. Normalisierung w&uuml;rde in dieser Ansicht keinen sinnvollen Informationsgehalt liefern, darum wurde darauf verzichtet.  
 		</div>
 		</div>
 	</div>

@@ -2,6 +2,8 @@
 
 /**
  * Inverter class.
+ *
+ * When data is loaded, for each inverter found, one object is created holding meta data (Serial etc.) and solar data.
  */
 class Inverter {
 
@@ -129,6 +131,8 @@ class Inverter {
 
 /**
  * Solarlog_model class.
+ *
+ * This class parses the data files from SolarLog, creates objects for each inverter found and provides methods to receive the data
  * 
  * @extends CI_Model
  */
@@ -195,7 +199,9 @@ class Solarlog_model extends CI_Model {
    var $EnergyYesterday = 0;
 
   /**
-   * Flag which gets set as soon as data has been loaded into the object
+   * Flag which gets set as soon as data has been loaded into the object. 
+   * Checked by all getter functions being able to load data into the 
+   * object if not already done.
    * 
    * (default value: FALSE)
    * 
@@ -215,8 +221,7 @@ class Solarlog_model extends CI_Model {
 	   parent::__construct();
 	   $this->get_base_data ();
 	   $this->has_data = FALSE;
-	   }
-
+}
 
   /**
    * get_month_power_ajax function.
@@ -289,6 +294,8 @@ class Solarlog_model extends CI_Model {
 		}
 		$result = array();
 		$energy = 0;
+		
+//		print_r ( $this->InverterInfo );
 		
 		if ( count ( $this->InverterInfo ) > 0 ) {
 			// always iterate over all inverters first.
