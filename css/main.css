@@ -62,7 +62,14 @@
 
 	#radio {
 	    margin-bottom: 5px;
+	    margin-top: 5px;
+	    text-align: center;
 	}
+
+.radio {
+	display: inline;
+	
+}
 
 	a {
 		color: #003399;

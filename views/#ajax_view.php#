@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="utf-8">
+   <title>Welcome to CodeIgniter</title>
+
+   <link rel="stylesheet" href="/css/main.css">
+
+   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js"></script>
+   <script type="text/javascript" src="/js/highcharts.js"></script>
+      
+   <script type="text/javascript" src="/js/themes/gray.js"></script>                                                                                    
+  
+
+   <!-- 1b) Optional: the exporting module -->
+   <script type="text/javascript" src="/js/modules/exporting.js"></script>
+         
+   <!-- 2. Add the JavaScript to initialize the chart on document ready -->
+   <script type="text/javascript">
+	      function dump(arr,level) {
+	      var dumped_text = "";
+	      if(!level) level = 0;
+	      
+	      //The padding given at the beginning of the line.
+	      var level_padding = "";
+	      for(var j=0;j<level+1;j++) level_padding += "    ";
+	      
+	      if(typeof(arr) == 'object') { //Array/Hashes/Objects 
+		for(var item in arr) {
+		  var value = arr[item];
+		  
+		  if(typeof(value) == 'object') { //If it is an array,
+		    dumped_text += level_padding + "'" + item + "' ...\n";
+		    dumped_text += dump(value,level+1);
+		  } else {
+		    dumped_text += level_padding + "'" + item + "' => \"" + value + "\"\n";
+		  }
+		}
+	      } else { //Stings/Chars/Numbers etc.
+		dumped_text = "===>"+arr+"<===("+typeof(arr)+")";
+	      }
+	      return dumped_text;
+	    }
+   </script>
+	      <?php // echo $chart; ?> 
+
+   <script type="text/javascript">
+	      $(document).ready ( function () {
+		  var options = {
+		  chart: {
+		    renderTo: 'chart',
+		    type: 'areaspline'
+		  },
+		  title: {
+		    text: 'Tageswerte (pro kWp)'
+		  },
+		  subtitle: {
+		    text: 'Heute'
+		  },
+		  xAxis: {
+		    type: 'datetime',
+		    dateTimeLabelFormats: { // don't display the dummy year
+		      month: '%e. %b',
+		      year: '%b'
+		      },
+		  },
+		  series: {}
+		  };
+		  $.post ( "<?= site_url ( 'ajax/' ) ?>", {}, function ( result_data ) {
+		       options.series.data = result_data;
+		    });
+		
+		  $(' ( options ) );
+		  chart = new Highcharts.Chart(options);
+
+		  //
+		  //		  $.post("<?= site_url('ajax/') ?>", {}, function( result_groups ) {
+		  //  $('#navigation').empty();
+		  //  echo ( result_groups );
+		      //			   $('#navigation').append ( result_groups );
+		    //  });
+		});
+
+
+
+
+   </script>
+
+</head>
+<body>
+
+
+<?php
+	      $this->load->model ( 'Solarlog_model' );
+?>
+
+
+<div id="container">
+	<h1>Photovoltaikanlage Scheune Wambach</h1>
+
+	<div id="body">
+
+  <div id="navigation">
+
+	      <?php echo $nav; ?>
+	     
+  </div>
+
+
+
+   <div id="chart" style="width: 800px; height: 400px; margin: 0 auto"></div>
+
+	</div>
+
+	<p class="footer">Page rendered in <strong>{elapsed_time}</strong> seconds</p>
+</div>
+
+</body>
+</html>

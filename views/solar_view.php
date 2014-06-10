@@ -130,13 +130,14 @@ var datepickerOptions = {
     showButtonPanel: true,
     buttonImageOnly: true,
     onSelect: function(dateText, inst) {
-		drawChart ( dateText );
+		drawChart ( );
     },
     onChangeMonthYear: function ( year, month, picker ) {
-		if ( $('#monthly:checked').val() ) {
+		if ( $("input[name='displaytype']:checked").attr("id") != "daily" ) {
 			// Monthly checked => Update graph 140418!
-			var datestr = year.toString().substr( 2, 2 ) + pad( month, 2 ) + '01';		
-			drawChart ( datestr );
+			var datestr = year.toString().substr( 2, 2 ) + pad( month, 2 ) + '01';	
+			$('#datepicker').datepicker("setDate", new Date( '20' + datestr.substr(0, 2) + '-' + datestr.substr(2, 2) + '-' + datestr.substr(4, 2) ) );
+			drawChart();
 		}
     }
 };
@@ -171,23 +172,32 @@ function json2array(json){
   return result;
 }
 
+function setRadio(id) {
+    var radio = $('#' + id);
+    radio[0].checked = true;
+    radio.button("refresh");
+}
+
 /*
  * Draw the chart. 
  *
  * String dateText Date in the format yymmdd. Monthly data also needs a two 
  * digit day, doesn't matter which day of the month is given, thoug
  */
-function drawChart ( dateText ) {
+function drawChart (  ) {
+	var dateText = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
 	var diverted = 0;
 	var normalize = 0;
 	var energy = 0;
 	var monthly = 0;
 	var fixy = 0;
+	var displayType = $("input[name='displaytype']:checked").attr("id");
 	var divertedIsChecked = $('#diverted:checked').val()?true:false;
 	var normalizeIsChecked = $('#normalize:checked').val()?true:false;
 	var energyIsChecked = $('#energy:checked').val()?true:false;
 	var monthlyIsChecked = $('#monthly:checked').val()?true:false;  
 	var fixyIsChecked = $('#fixy:checked').val()?true:false;  
+
 	if( divertedIsChecked ){
     	combined = 0;    	    	
 	}
@@ -213,29 +223,9 @@ function drawChart ( dateText ) {
 		energy = 0;
 	}
 
-	if ( monthlyIsChecked ) {
-		// Remove red as a leading color
-		if ( divertedIsChecked ) {
-			var colors = new Array( '#00FFFF', '#00FF00', '#0000FF', '#000000', '#ffad40' );  
-		}
-		else {
-			var colors = new Array( '#00BB00' );
-			
-		}
-		// Disable energy and normalization, stop autoreload
-		$('#content').timer( 'stop' );
-
-		$("#normalize").attr("disabled", true );
-		$("#energy").attr("disabled", true );
-		$("#live").attr("disabled", true );
-		$("#normalize").removeAttr("checked");
-		$("#energy").removeAttr("checked");
-		$("#live").removeAttr("checked");
-		$("label[for='normalize']").css('color', '#DDDDD');
-		$("label[for='energy']").css('color', '#DDDDD');
-		$("label[for='live']").css('color', '#DDDDD');
-	}
-	else {
+	updatePermalink();
+	switch ( displayType ) {
+		case "daily":
 		var colors = new Array( '#FF0000', '#008800', '#00FFFF', '#00FF00', '#0000FF', '#000000', '#ffad40' );  
 		$("#normalize").removeAttr("disabled");
 		$("#energy").removeAttr("disabled");
@@ -243,101 +233,7 @@ function drawChart ( dateText ) {
 		$("label[for='normalize']").css('color', '#000000');
 		$("label[for='energy']").css('color', '#000000');
 		$("label[for='live']").css('color', '#000000');
-	}
 
-	if ( monthlyIsChecked ) {
-		// Month graph
-		$.getJSON( '/index.php/solar/month_ajax', {
-			date: dateText,
-			combined: combined					
-		}).done ( function ( json ) {
-			// Remove any preexisting series from the chart
-			while(chart.series.length > 0)
-				chart.series[0].remove(true);
-			// Set some options for the axis
-			chart.xAxis[0].update( {
-				type: 'linear',		
-				labels: {
-					// Reset the formatter
-					formatter: function() {
-						return this.value;
-					},
-				}	
-			});
-			chart.yAxis[0].update ( {
-				title: {
-					text: 'kWh'
-				},
-				stackLabels: {
-                	enabled: true,
-					formatter: function() {
-						return Math.round( this.total / 1000 );
-					},                    
-                    style: {
-                        fontWeight: 'bold',
-                        color: (Highcharts.theme && Highcharts.theme.textColor) || 'gray'
-                    }
-                }
-			});
-			if ( fixy == 1 ) {
-				chart.yAxis[0].update( {
-					max:160000
-				});
-			}
-			else {
-				chart.yAxis[0].update( {
-					max:null
-				});
-			}
-
-			// Hide secondary yAxis
-			chart.yAxis[1].update({
-				labels: {
-					enabled: false
-				},
-				title: {
-					text: null
-				},
-			});
-
-			// Set the formatter to add a total value
-			chart.tooltip.options.formatter = function() {
-				return '<b>'+ this.series.name +'</b><br/>' +
-				this.x +'</a>: '+ Math.round(this.y / 1000) + 'kWh<br/>' +
-				'Total: '+ Math.round( this.point.stackTotal/1000 ) + 'kWh';
-			}			
-			// iterate over the data
-			$.each ( json, function ( index, jSeries ) {
-				// jSeries[0]: Array of Names 
-				// jSeries[1]: Array of Arrays of Dates (one array per Inverter)
-				// jSeries[2]: Array of Arrays of Values (one Array per Inverter)
-				// jSeries[3]: Date
-				var datestr = jSeries[3]+"";
-				chart.setTitle({ text: $.datepicker.formatDate("M yy", $.datepicker.parseDate ( "ymd", dateText ) ) }, { text: 'Produktion im Monat' } ) ;
-//				chart.setTitle({ text: $.datepicker.formatDate("M yy", $('#datepicker').datepicker("getDate")) }, { text: 'Produktion im Monat' } ) ;
-				// Add the x axis tickmarks
-				chart.xAxis[0].update ( { categories: json2array( jSeries[1][0] ) } );					
-				$.each( jSeries[2], function ( index, value )  {
-					chart.addSeries( {
-						name: jSeries[0][index],
-						data: json2array( jSeries[2][index] ),
-						color: colors[ chart.series.length ],
-						type: 'column',
-						stacking: 'normal',
-						events: {
-							click: function(event) {
-								var dateStr = event.point.category;
-								$('#datepicker').datepicker("setDate", new Date( '20' + dateStr.substr(6, 2) + '-' + dateStr.substr(3, 2) + '-' + dateStr.substr(0, 2) ) );
-								$("#monthly").attr("checked", false );
-								drawChart( dateStr.substr(6, 2) + dateStr.substr(3, 2) + dateStr.substr(0, 2) );
-							}
-						}
-					});
-				});
-			});
-		}); // End function done (json) 
-	} // End if monthly is checked
-	else {
 		// Day graph
 		$.getJSON( '/index.php/solar/day_ajax', {
 			date: dateText,
@@ -479,6 +375,256 @@ function drawChart ( dateText ) {
 				}
 			});
 		});
+
+
+		break;
+		case "monthly":
+
+
+//		alert ( $('#datepicker').datepicker("getDate") );
+		// Remove red as a leading color
+		if ( divertedIsChecked ) {
+			var colors = new Array( '#00FFFF', '#00FF00', '#0000FF', '#000000', '#ffad40' );  
+		}
+		else {
+			var colors = new Array( '#00BB00' );
+			
+		}
+		// Disable energy and normalization, stop autoreload
+		$('#content').timer( 'stop' );
+
+		$("#normalize").attr("disabled", true );
+		$("#energy").attr("disabled", true );
+		$("#live").attr("disabled", true );
+		$("#normalize").removeAttr("checked");
+		$("#energy").removeAttr("checked");
+		$("#live").removeAttr("checked");
+		$("label[for='normalize']").css('color', '#DDDDD');
+		$("label[for='energy']").css('color', '#DDDDD');
+		$("label[for='live']").css('color', '#DDDDD');
+
+		// Month graph
+		$.getJSON( '/index.php/solar/month_ajax', {
+			date: dateText,
+			combined: combined					
+		}).done ( function ( json ) {
+			// Remove any preexisting series from the chart
+			while(chart.series.length > 0)
+				chart.series[0].remove(true);
+			// Set some options for the axis
+			chart.xAxis[0].update( {
+				type: 'linear',		
+				labels: {
+					// Reset the formatter
+					formatter: function() {
+						return this.value;
+					},
+				}	
+			});
+			chart.yAxis[0].update ( {
+				title: {
+					text: 'kWh'
+				},
+				stackLabels: {
+                	enabled: true,
+					formatter: function() {
+						return Math.round( this.total / 1000 );
+					},                    
+                    style: {
+                        fontWeight: 'bold',
+                        color: (Highcharts.theme && Highcharts.theme.textColor) || 'gray'
+                    }
+                }
+			});
+			if ( fixy == 1 ) {
+				chart.yAxis[0].update( {
+					max:160000
+				});
+			}
+			else {
+				chart.yAxis[0].update( {
+					max:null
+				});
+			}
+
+			// Hide secondary yAxis
+			chart.yAxis[1].update({
+				labels: {
+					enabled: false
+				},
+				title: {
+					text: null
+				},
+			});
+
+			// Set the formatter to add a total value
+			chart.tooltip.options.formatter = function() {
+				return '<b>'+ this.series.name +'</b><br/>' +
+				this.x +'</a>: '+ Math.round(this.y / 1000) + 'kWh<br/>' +
+				'Total: '+ Math.round( this.point.stackTotal/1000 ) + 'kWh';
+			}			
+			// iterate over the data
+			$.each ( json, function ( index, jSeries ) {
+				// jSeries[0]: Array of Names 
+				// jSeries[1]: Array of Arrays of Dates (one array per Inverter)
+				// jSeries[2]: Array of Arrays of Values (one Array per Inverter)
+				// jSeries[3]: Date
+				var datestr = jSeries[3]+"";
+				chart.setTitle({ text: $.datepicker.formatDate("M yy", $.datepicker.parseDate ( "ymd", dateText ) ) }, { text: 'Produktion pro Tag' } ) ;
+//				chart.setTitle({ text: $.datepicker.formatDate("M yy", $('#datepicker').datepicker("getDate")) }, { text: 'Produktion im Monat' } ) ;
+				// Add the x axis tickmarks
+				chart.xAxis[0].update ( { categories: json2array( jSeries[1][0] ) } );					
+				$.each( jSeries[2], function ( index, value )  {
+					chart.addSeries( {
+						name: jSeries[0][index],
+						data: json2array( jSeries[2][index] ),
+						color: colors[ chart.series.length ],
+						type: 'column',
+						stacking: 'normal',
+						events: {
+							click: function(event) {
+								var dateStr = event.point.category;
+								setRadio( "daily" );
+								$('#datepicker').datepicker("setDate", new Date( '20' + dateStr.substr(6, 2) + '-' + dateStr.substr(3, 2) + '-' + dateStr.substr(0, 2) ) );
+//								drawChart( dateStr.substr(6, 2) + dateStr.substr(3, 2) + dateStr.substr(0, 2) );
+								drawChart();
+							}
+						}
+					});
+				});
+			});
+		}); // End function done (json) 
+
+		
+		break;
+		case "yearly":
+
+		// Remove red as a leading color
+		if ( divertedIsChecked ) {
+			var colors = new Array( '#00FFFF', '#00FF00', '#0000FF', '#000000', '#ffad40' );  
+		}
+		else {
+			var colors = new Array( '#00BB00' );
+			
+		}
+		// Disable energy and normalization, stop autoreload
+		$('#content').timer( 'stop' );
+
+		$("#normalize").attr("disabled", true );
+		$("#energy").attr("disabled", true );
+		$("#live").attr("disabled", true );
+		$("#normalize").removeAttr("checked");
+		$("#energy").removeAttr("checked");
+		$("#live").removeAttr("checked");
+		$("label[for='normalize']").css('color', '#DDDDD');
+		$("label[for='energy']").css('color', '#DDDDD');
+		$("label[for='live']").css('color', '#DDDDD');
+
+		// Month graph
+		$.getJSON( '/index.php/solar/year_ajax', {
+			date: dateText,
+			combined: combined					
+		}).done ( function ( json ) {
+			// Remove any preexisting series from the chart
+			while(chart.series.length > 0)
+				chart.series[0].remove(true);
+			// Set some options for the axis
+			chart.xAxis[0].update( {
+				type: 'linear',		
+				labels: {
+					// Reset the formatter
+					formatter: function() {
+//						var val = this.value;
+						return( this.value );						
+//						return val.substr( 3, 2 );
+					},
+				}	
+			});
+			chart.yAxis[0].update ( {
+				title: {
+					text: 'kWh'
+				},
+				stackLabels: {
+                	enabled: true,
+					formatter: function() {
+						return Math.round( this.total / 1000 );
+					},                    
+                    style: {
+                        fontWeight: 'bold',
+                        color: (Highcharts.theme && Highcharts.theme.textColor) || 'gray'
+                    }
+                }
+			});
+			if ( fixy == 1 ) {
+				chart.yAxis[0].update( {
+					max:3500000
+				});
+			}
+			else {
+				chart.yAxis[0].update( {
+					max:null
+				});
+			}
+
+			// Hide secondary yAxis
+			chart.yAxis[1].update({
+				labels: {
+					enabled: false
+				},
+				title: {
+					text: null
+				},
+			});
+
+			// Set the formatter to add a total value
+			chart.tooltip.options.formatter = function() {
+				return '<b>'+ this.series.name +'</b><br/>' +
+				this.x +'</a>: '+ Math.round(this.y / 1000) + 'kWh<br/>' +
+				'Total: '+ Math.round( this.point.stackTotal/1000 ) + 'kWh';
+			}			
+			// iterate over the data
+			$.each ( json, function ( index, jSeries ) {
+				// jSeries[0]: Array of Names 
+				// jSeries[1]: Array of Arrays of Dates (one array per Inverter)
+				// jSeries[2]: Array of Arrays of Values (one Array per Inverter)
+				// jSeries[3]: Date
+				var datestr = jSeries[3]+"";
+				chart.setTitle({ text: $.datepicker.formatDate("yy", $.datepicker.parseDate ( "ymd", dateText ) ) }, { text: 'Produktion pro Monat' } ) ;
+				// Add the x axis tickmarks
+				chart.xAxis[0].update ( { categories: json2array( jSeries[1][0] ) } );					
+				$.each( jSeries[2], function ( index, value )  {
+					chart.addSeries( {
+						name: jSeries[0][index],
+						data: json2array( jSeries[2][index] ),
+						color: colors[ chart.series.length ],
+						type: 'column',
+						stacking: 'normal',
+						events: {
+							click: function(event) {
+							
+								var month = pad( event.point.category, 2 );
+								var year = $("select.ui-datepicker-year").val() ;
+								console.log( this.options );
+								$('#datepicker').datepicker("setDate", new Date( year + '-' + month + '-01'  ) );
+								setRadio( "monthly" );
+								drawChart();
+							}
+						}
+					});
+				});
+			});
+		}); // End function done (json) 
+
+		break;
+		
+	}
+
+
+	if ( monthlyIsChecked ) {
+
+	} // End if monthly is checked
+	else {
+
 	} // End else if monthlyIsChecked
 } // End function drawChart
 
@@ -567,9 +713,31 @@ function elementResize() {
     }
 }
 
+function updatePermalink() {
+	var view = $("input[name='displaytype']:checked").attr("id");
+	var dateText = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
+	var uri = "http://solar.doerflinger.org?d=";
+	switch ( view ) {
+		case "daily":
+			uri += dateText;
+		break;
+		case "monthly":
+			uri += dateText.substr( 0, 4 );
+		break;
+		case "yearly":
+			uri += dateText.substr( 0, 2 );		
+		break;		
+	}
+
+	$("#permalink").text( uri );
+	$("#permalink").attr("href", uri)
+	console.log( view + " " + dateText );
+
+}		
+		
 		
 $(function () {
-	
+			
 	elementResize();
 
     $(window).bind("resize", function(){
@@ -587,7 +755,7 @@ $(function () {
 		repeat: true,
 		autostart: $('#live:checked').val(),
 		callback: function( index ) {
-			drawChart ( $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate")) );
+			drawChart ();
 		}
 	});
 	
@@ -625,23 +793,50 @@ $(function () {
 
 	// react on changes of the filter checkboxes
     $(".filter").change(function () {
-      var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
-      drawChart ( datestr );
-
+      drawChart ( );
     });
+	$("#radio").buttonset();
+	$("#radio").buttonset().find('label').css('width', '32.6%');
+    
+    // Get date parameter for a fixed date uri
+    // Six digits: day view, yymmdd
+    // Four digits: month view, yymm
+    // Two digits: year view, yy
+    
+	var externalDate = "<?php echo $date; ?>";
+	if ( ( externalDate.length == 6 ) && ( /^\d+$/.test(externalDate) ) ) {
+		$('#datepicker').datepicker("setDate", new Date( '20' + externalDate.substr(0, 2) + '-' + externalDate.substr(2, 2) + '-' + externalDate.substr(4, 2) ) );
+
+	}
+	else if ( ( externalDate.length == 4 ) && ( /^\d+$/.test(externalDate) ) ) {
+		$('#datepicker').datepicker("setDate", new Date( '20' + externalDate.substr(0, 2) + '-' + externalDate.substr(2, 2) + '-01' ) );
+		setRadio( "monthly" );
+	}
+	else if ( ( externalDate.length == 2 ) && ( /^\d+$/.test(externalDate) ) ) {
+		$('#datepicker').datepicker("setDate", new Date( '20' + externalDate.substr(0, 2) + '-01-01' ) );
+		setRadio( "yearly" );	
+	}
+
+	updatePermalink();
+
     
 	// Initialize Chart
 	chart = new Highcharts.Chart( chartOptions );
 
 	// Create an initial chart
-	var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
-	drawChart ( datestr );
+	drawChart ( );
 	
 	
 	$(".helptext").tooltip();
 
 	$("#strings-header").tooltip();
 	
+	
+    $("input[name='displaytype']").change( function() {
+      drawChart ( );
+    });
+
+
 	
 	$("#live").change( function () {
 		if ( $('#live:checked').val()  ) {
@@ -652,9 +847,6 @@ $(function () {
 		}
 	});
 	
-//	$("#toggle").click( function () {
-//		$("#menu").hide();
-//	});
 
 });
         
@@ -672,7 +864,21 @@ $(function () {
 					Ansicht
 				</div>
 				<div class="format">
+				<form>
+				<div id="radio">
+    <input type="radio" checked="checked" id="daily" name="displaytype">
+    <label for="daily">Tag</label>
+    
+    <input type="radio" id="monthly" name="displaytype">
+    <label for="monthly">Monat</label>
+    
+    <input type="radio" id="yearly" name="displaytype">
+    <label for="yearly">Jahr</label>  
+				</div>
+				</form>
+				<!--
 					<input type="checkbox" id="monthly" class="filter" /><label for="monthly">Monatswerte</label><span class="ui-icon ui-icon-comment helptext" title="Daten monatsweise anzeigen"></span>
+					-->
 				</div>
 				<div class="format">
 					<input type="checkbox" id="diverted" class="filter" /><label for="diverted">Wechselrichter einzeln</label><span class="ui-icon ui-icon-comment helptext" title="Einzelnen Graphen f&uuml;r jeden Wechselrichter anzeigen"></span>
@@ -708,7 +914,10 @@ $(function () {
 					Code on GitHub: <a href="https://github.com/zapalotta/SolarLogger" target="_blank">github.com/zapalotta/SolarLogger</a>
 				</div>
 				<div class="links">
-					Uses <a href="http://ellislab.com/codeigniter" target="_blank">CodeIgniter</a>
+					Uses <a href="http://ellislab.com/codeigniter" target="_blank">CodeIgniter</a>, <a href="http://jquery.com" target="_blank">jQuery</a> and <a href="http://www.highcharts.com" target="_blank">Highcharts</a>
+				</div>
+				<div class="links">
+				Permalink: <a id="permalink" href="http://solar.doerflinger.org">solar.doerflinger.org</a> 
 				</div>
 				
 				
@@ -735,7 +944,7 @@ $(function () {
 		Die Orange Kurve zeigt ebenso wie die orangefarbigen Module im Schema links den Anlagenteil auf dem Norddach. Sie erreicht mangels direkter Sonneneinstrahlung nur ca. 2/3 der Leistung (normalisiert) der S&uuml;danlage, dies wird z.B. am 05.08.2013 deutlich.
 	 Bei sehr geringer Leistung (Regentag) liefert sie allerdings in etwa gleich viel wie die S&uuml;danlage.
 	 	<h4>Balkendarstellung</h4>
-	 	Die Balken stellen den Ertrag pro Tag im Verlauf des Monats dar. Der Ertrag (in kWh, Kilowattstunden) ist die Energie, die produziert und in das elektrische Netz eingespeist wurde, im Prinzip einfach die Umkehrung des Verbrauchs elektrischer Energie durch z.B. ein Haushaltsgerät. Normalisierung w&uuml;rde in dieser Ansicht keinen sinnvollen Informationsgehalt liefern, darum wurde darauf verzichtet.  
+	 	Die Balken stellen den Ertrag pro Tag im Verlauf des Monats bzw. pro Monat im Lauf des Jahres dar. Der Ertrag (in kWh, Kilowattstunden) ist die Energie, die produziert und in das elektrische Netz eingespeist wurde, im Prinzip das Selbe wie beim Verbrauch elektrischer Energie durch z.B. ein Haushaltsgerät. Normalisierung w&uuml;rde in dieser Ansicht keinen sinnvollen Informationsgehalt liefern, darum wurde darauf verzichtet.  
 		</div>
 		</div>
 	</div>

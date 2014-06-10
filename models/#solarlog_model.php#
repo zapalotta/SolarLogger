@@ -1,0 +1,914 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+class Inverter {
+
+  var $InverterNumber = -1;
+
+  var $Type = "";
+
+  var $AddressSerial = "";
+
+  var $ConnectedPower = 0;
+
+  var $Description = "";
+
+  var $NumberOfStrings = 0;
+
+  var $StringNames = array ();
+
+  var $ModuleField = array ();
+
+  var $InverterPower = 0;
+
+  var $HasTemp = 0;
+
+  var $minutesData = array ();  
+
+  var $dayData = array ();  
+}
+
+
+class Solarlog_model extends CI_Model {
+
+  var $base_url = "http://solar.doerflinger.org/index.php/data/";
+
+  var $dateOfFile = "";
+  
+  var $SiteKWP = 0;
+
+  var $date_today = "";
+
+  var $month_today = "";
+
+  var $NumerOfInverters = 0;
+
+  var $InverterInfo = array ();
+
+  var $InverterInfoStrings = array ();
+
+  var $EnergyYesterday = 0;
+
+  var $has_data = FALSE;
+
+                                                                                                                                                                         
+   * Constructor                                                                                                                                                               
+   *                                                                                                                                                                           
+   * Initialize the class                                                                                                                                                      
+   *                                                                                                                                                                           
+   * @access   public                                                                                                                                                          
+   */
+  function __construct () {
+    parent::__construct();
+    
+    $this->get_base_data ();
+
+    $this->has_data = FALSE;
+  }
+
+  function get_inverter_list () {
+    $ret = '<ul>';
+    foreach ( $this->InverterInfo as $inverter ) {
+      
+      $ret .= '<li>' . $inverter->Type . '</li>';
+    }
+    $ret .= '</ul>';
+    return $ret;
+  }
+
+  function create_nav ( $mode = "day", $date = "", $combined = "1", $energy = "0", $normalized = "0" ) {
+    $ret = "";
+    $url_begin = base_url () . "index.php/data/day/";
+    $url_end = "/$combined/$energy/$normalized";
+
+    if ( $date != "" ) {
+      $year = "20" . substr ( $date, 0, 2 );
+      $month = substr ( $date, 2, 2 );
+    }
+    else {
+      $year = date ( "Y" );
+      $month = date ( "m" );
+    }
+    $prefs = array (
+		    'show_next_prev'  => TRUE,
+		    'next_prev_url'   => base_url () . "index.php/data/cal/$combined/$energy/$normalized"
+		    );
+    $this->load->library('calendar', $prefs );
+
+    $data = array ();
+
+    if ( $month == date ( "m" ) ) {
+      // actual month, only show today and past days
+      $today = date ( "j" );
+      for ( $i = 1; $i <= $today; $i++ ) {
+	if ( $i < 10 ) $day = "0" . $i;
+	else $day = $i;
+	$data [ $i ] = $url_begin . substr ( $year, 2, 2 ) . $month . $day . $url_end;	
+      }
+      $data [ $today ] = base_url () . "index.php/data/today" . $url_end;
+    }
+    else {
+      for ( $i = 1; $i <= 31; $i++ ) {
+	// create Links for each day
+	if ( $i < 10 ) $day = "0" . $i;
+	else $day = $i;
+	$data [ $i ] = $url_begin . substr ( $year, 2, 2 ) . $month . $day . $url_end;
+      }
+    }
+
+    $ret = $this->calendar->generate( $year, $month, $data );
+
+    if ( $combined == "1" ) {
+      $combined_link = substr_replace ( current_url (), "0", -5, 1 );
+      $combined_text = "WR einzeln anzeigen";
+      $combined_text .= $this->get_inverter_list();
+    }
+    else {
+      $combined_link = substr_replace ( current_url (), "1", -5, 1 );
+      $combined_text = "WR kombiniert anzeigen";
+    }
+    if ( $energy == "1" ) {
+      $energy_link = substr_replace ( current_url (), "0", -3, 1 );
+      $energy_text = "Ertrag nicht anzeigen";
+    }
+    else {
+      $energy_link = substr_replace ( current_url (), "1", -3, 1 );
+      $energy_text = "Ertrag anzeigen";
+    }
+    if ( $normalized == "1" ) {
+      $normalized_link = substr_replace ( current_url (), "0", -1, 1 );
+      $normalized_text = "Nicht normalisieren";
+    }
+    else {
+      $normalized_link = substr_replace ( current_url (), "1", -1, 1 );
+      $normalized_text = "Auf 1kWp normalisieren";
+    }
+
+    $ret .= "<ul>";
+    $ret .= "<li>" . anchor ( $combined_link, $combined_text ) . "</li>";
+    $ret .= "<li>" . anchor ( $energy_link, $energy_text ) . "</li>";
+    $ret .= "<li>" . anchor ( $normalized_link, $normalized_text ) . "</li>";
+    $ret .= "</ul>";
+    
+    return $ret;
+  }
+
+
+
+  function create_day_chart ( $date = "", $combined = TRUE, $show_energy = FALSE, $normalized = FALSE ) {
+    if ( !$this->has_data ) {
+      $this->get_day_data ( $date, $combined );
+      //print_r ( $this->InverterInfo );
+    }
+    $ret = "";
+    $ret .= "var chart;
+  $(document).ready(function() {
+    chart = new Highcharts.Chart({
+      chart: {
+	renderTo: 'chart',
+	    type: 'areaspline'
+	    },
+	  title: {";
+
+    if ( $normalized ) $ret .= "text: 'Tageswerte (pro kWp)'";
+    else $ret .= "text: 'Tageswerte'";
+    $ret .= "	    },
+	  subtitle: {
+	text: '" . $this->date_today . "'
+	    },
+	  xAxis: {
+	type: 'datetime',
+	    dateTimeLabelFormats: { // don't display the dummy year
+	  month: '%e. %b',
+	      year: '%b'
+	      },
+
+	},";
+
+
+    if ( $show_energy ) $ret .= "yAxis: [{
+	title: {
+	  text: 'P<sub>ac</sub> (W)'
+	      },
+	    min: 0
+	      },{
+	  title: {
+	    text: 'Energie (kWh)'
+		},
+	      min: 0,
+	      opposite: true
+	      }],
+";
+
+    else $ret .= "yAxis: [{
+	title: {
+	  text: 'P<sub>ac</sub> (W)'
+	      },
+	    min: 0
+	      }],
+";
+
+
+    $ret .= "series: ";
+    // power
+    if ( $combined ) $ret .= $this->get_day_power_js_combined ();
+    else $ret .= $this->get_day_power_js_single ( $normalized );
+
+    // energy
+    if ( $show_energy ) $ret .= "," . $this->get_current_day_energy ( $normalized );
+    else $ret .= "]";
+
+$ret .= "
+      });
+  });
+";  
+    return $ret;
+  }
+
+  function create_month_chart ( $date = "", $combined = TRUE, $show_energy = FALSE, $normalized = FALSE ) {
+    if ( !$this->has_data ) {
+
+      $this->get_month_data ( $date, $combined );
+
+      //print_r ( $this->InverterInfo );
+
+    }
+    $ret = "";
+    $ret .= "var chart;
+$(document).ready(function() {
+    chart = new Highcharts.Chart({
+      chart: {
+	renderTo: 'chart',
+	    type: 'areaspline'
+	    },
+	  title: {";
+
+    if ( $normalized ) $ret .= "text: 'Monat (pro kWp)'";
+    else $ret .= "text: 'Monat'";
+
+
+    // power
+    if ( $combined ) $ret .= $this->get_month_energy_js_combined ();
+    else $ret .= $this->get_month_energy_js_single ( $normalized );
+
+    $ret .= "]";
+
+    $ret .= "
+     });
+  });
+";  
+    return $ret;
+  }
+
+
+  function get_current_day_energy ( $normalized = FALSE ) {
+    $ret = "";
+
+    $ret .= "{
+      name: 'Ertrag (kWh)',
+      type: 'spline',
+      color: '#00FFFF',
+      yAxis: 1,
+          marker: { enabled: false,
+                    states: {
+                      hover: {
+                        enabled: true,
+                        radius: 3
+                      }
+                    }
+                  },
+      data: [
+";
+    
+    $numberOfInverters = count ( $this->InverterInfo );
+    
+
+    if ( $numberOfInverters > 0 ) {
+      $sitePowerkWp = 0;
+      foreach ( $this->InverterInfo as $inverter ) {
+	$sitePowerkWp += $inverter->ConnectedPower/1000;
+      }
+
+      foreach ( $this->InverterInfo [0]->minutesData as $minData ) {
+	// iterate over all datasets
+	$dayEnergy = 0;
+	foreach ( $this->InverterInfo as $inverter ) {
+	  $dayEnergy += $inverter->minutesData [ $minData [ 'timestamp' ] ][ 'dayEnergy' ];
+	}       
+		
+	$ret .= "[Date.UTC(" . 
+	  $minData [ 'year' ] . ", " .
+	  $minData [ 'month' ] . ", " .
+	  $minData [ 'day' ] . ", " .
+	  $minData [ 'hour' ] . ", " .
+	  $minData [ 'minute' ] . ", " .
+	  $minData [ 'second' ] .
+	  "), ";
+	if ( $normalized ) {
+	  $ret .= round ( $dayEnergy/1000/$sitePowerkWp, 2 );
+	}
+	else {
+	  $ret .= round ( $dayEnergy/1000, 2 );
+	}
+	$ret .=  "],\n";
+	
+      }
+    }
+
+$ret .= "		     ]
+	      }]";
+
+
+    return $ret;
+  }
+
+  function get_date_today () {
+    return $this->date_today;
+  }
+
+  function get_day_power_js_combined () {
+    $ret = "";
+    $ret .=	  "[{
+	  name: 'Kombinierte Leistung AC',
+	      type: 'areaspline',
+	      tooltip: {
+	formatter: function() {
+                                                return '<b>'+ this.series.name +'</b><br/>'+
+						  Highcharts.dateFormat('%e. %b', this.x) +': '+ this.y +' m';
+	    }
+	  },
+          marker: { enabled: false,
+                    states: {
+                      hover: {
+                        enabled: true,
+                        radius: 3
+                      }
+                    }
+                  },
+
+data: [
+";
+    if ( count ( $this->InverterInfo ) > 0 ) {
+      foreach ( $this->InverterInfo [0]->minutesData as $minData ) {
+	// iterate over all datasets
+	$pac = 0;
+	foreach ( $this->InverterInfo as $inverter ) {
+	  $pac += $inverter->minutesData [ $minData [ 'timestamp' ] ][ 'pac' ];
+	}       
+	$ret .= "[Date.UTC(" . 
+	  $minData [ 'year' ] . ", " .
+	  $minData [ 'month' ] . ", " .
+	  $minData [ 'day' ] . ", " .
+	  $minData [ 'hour' ] . ", " .
+	  $minData [ 'minute' ] . ", " .
+	  $minData [ 'second' ] .
+	  "), " .
+	  $pac .
+	  "],\n";	
+      }
+    }
+    $ret .= "]
+      } ";
+
+    return $ret;
+  }
+
+  function get_month_power_ajax ( $type="energy", $date = "", $combined = TRUE ) {
+    if ( $date == date( 'ymd' ) ) $date = "";
+    if ( !$this->has_data ) {
+      $this->get_month_data ( $date, $combined );
+      //   print_r ( $this->InverterInfo );
+    }
+    $xAxis = array ();
+    $data = array ();
+	$cat = array();
+	$name = array();
+	$counter = 0;
+    if ( count ( $this->InverterInfo ) > 0 ) {
+    	foreach ( $this->InverterInfo as $inverter ) {
+			$name[$counter] = $inverter->Type;		
+			foreach ( $inverter->dayData as $val ) {
+//				if ( !array_key_exists ( $val['timestamp'] , $data ) ) $data[$val['timestamp']] = 0;
+//				$data[ $val['timestamp'] ] += $val [ 'energy' ];
+				$data[$counter][] = $val ['energy' ];
+				$cat[$counter][] = $val ['timestamp' ];
+			}
+			$counter ++;
+		}       
+      //      print_r ( $data );
+    }
+//    return $data;
+ 	return ( array( $name, $cat, $data ) );
+  }
+
+
+  function get_day_power_ajax( $type = "Pac", $date = "", $combined = TRUE, $show_energy = FALSE, $normalized = FALSE ) {
+    // if today is chosen, use the default, empty date because another file is sent for today's data
+    if ( $date == date( 'ymd' ) ) $date = "";
+    if ( !$this->has_data ) {
+      $this->get_day_data ( $date, $combined );
+      //      print_r ( $this->InverterInfo );
+    }
+    $result = array();
+    $energy = 0;
+    if ( count ( $this->InverterInfo ) > 0 ) {
+      //      if ( $combined ) {
+	foreach ( $this->InverterInfo [0]->minutesData as $minData ) {
+	  $value = 0;
+
+	  foreach ( $this->InverterInfo as $inverter ) {
+	    $result[0]['name'] = 'Gesamt ' . $type;
+	    $connectedPowerkWp = $inverter->ConnectedPower/1000;
+	    if ( !$normalized ) {
+	      $value += $inverter->minutesData [ $minData [ 'timestamp' ] ][ $type ] ;
+	    }
+	    else {
+	      $value += $inverter->minutesData [ $minData [ 'timestamp' ] ][ $type ]/$connectedPowerkWp ;
+	    }
+	  }
+	  $result[0]['data'][] = array ( $minData ['timestamp'], $value );
+	}
+	
+      	$datetime = str_replace ( '.', '-', $minData[ 'timestamp' ] );
+	$day = substr ( $datetime, 0, 2 );
+	$year = substr ( $datetime, 6, 2 );
+	$datetime = substr_replace ( $datetime, $year, 0, 2 );
+	$datetime = substr_replace ( $datetime, $day, 6, 2 );
+	$result[0]['timestamp'][] = strtotime( "20" . $datetime ) * 1000;
+//	$result[0]['timestamp'][] = "20" . $datetime;
+	$result[0]['data'] = array_reverse ( $result[0]['data']);
+	$energy = 0;
+	foreach ( $result[0]['data'] as $power ) {
+	  $energy += $power[1]/12000;
+	  $result[0]['energy'][] = array ( $power[0], $energy );
+	}
+	//      }
+      if ( !$combined ) {
+	//      else {
+	// not combined, show all inverters!!!!
+	// FIXME!
+	//	  $result['data'][] = array ( rand ( 0, 10000 ), rand( 0, 5000 ) );
+	//
+	$counter = 1;
+	foreach ( $this->InverterInfo as $inverter ) {
+	  $connectedPowerkWp = $inverter->ConnectedPower/1000;
+	  $result[$counter]['name'] = $inverter->Type; 
+	  foreach ( $inverter->minutesData as $minData ) {
+	    $value = 0;
+	    if ( !$normalized ) {
+	      $value += $inverter->minutesData [ $minData [ 'timestamp' ] ][ $type ] ;
+	    }
+	    else {
+	      $value += $inverter->minutesData [ $minData [ 'timestamp' ] ][ $type ]/$connectedPowerkWp;
+	    }
+	    $result[$counter]['timestamp'][] = $minData [ 'timestamp' ];
+	    $result[$counter]['data'][] = array( $minData [ 'timestamp' ], $value );
+	  }
+	  //	  $result[$counter]['data'][] = array( "01.01.70 05:00:00", null );
+	  $result[$counter]['timestamp'] = array_reverse ( $result[$counter]['timestamp'] );
+	  $result[$counter]['data'] = array_reverse ( $result[$counter]['data'] );
+	  $counter++;
+	  
+	}
+      }
+    }
+	
+    $result['num_inverters'] = count ( $this->InverterInfo );
+
+    return $result;
+  }
+
+
+  function get_day_power_js_combined_ajax ( $date = "", $combined = TRUE, $show_energy = FALSE, $normalized = FALSE ) {
+
+    if ( !$this->has_data ) {
+      $this->get_day_data ( $date, $combined );
+      //print_r ( $this->InverterInfo );
+    }
+
+
+    $ret = "";
+    if ( count ( $this->InverterInfo ) > 0 ) {
+      foreach ( $this->InverterInfo [0]->minutesData as $minData ) {
+	// iterate over all datasets
+	$pac = 0;
+	foreach ( $this->InverterInfo as $inverter ) {
+	  $pac += $inverter->minutesData [ $minData [ 'timestamp' ] ][ 'pac' ];
+	}       
+	$ret .= "[Date.UTC(" . 
+	  $minData [ 'year' ] . ", " .
+	  $minData [ 'month' ] . ", " .
+	  $minData [ 'day' ] . ", " .
+	  $minData [ 'hour' ] . ", " .
+	  $minData [ 'minute' ] . ", " .
+	  $minData [ 'second' ] .
+	  "), " .
+	  $pac .
+	  "],\n";	
+      }
+    }
+    return $ret;
+  }
+
+  function get_power () {
+    $data_array = array ();
+    $info_array = array ();
+    $ret = array ();
+    //    $i = 0;
+    if ( count ( $this->InverterInfo ) > 0 ) {
+      foreach ( $this->InverterInfo as $inverter ) {
+	$connectedPowerkWp = $inverter->ConnectedPower/1000;
+	foreach ( $inverter->minutesData as $minData ) {
+	  $val = array ( 'year'   => $minData ['year'],
+			   'month'  => $minData ['month'],
+			   'day'    => $minData ['day'],
+			   'hour'   => $minData ['hour'],
+			   'minute' => $minData ['minute'],
+			   'second' => $minData ['second']
+			   );
+	  $timestamp = implode ( $val );
+	  $value['normpower'] = round ( $minData [ 'pac' ] / $connectedPowerkWp, 2 );
+	  $value['power'] = round ( $minData ['pac'], 2 );
+	  $ret[$timestamp][$inverter->InverterNumber] = $value;
+	}
+      }
+    }
+    return $ret;
+  }
+
+  function format_power ( $normalize = false ) {
+    $ret = array ();
+    foreach ( $this->get_power() as $timestamp => $powerset ) {
+      foreach ( $powerset as $inverter ) {
+	if ( $normalize ) {
+	  
+	}
+	else {
+	  
+	}
+      }
+    }
+    return $ret;
+  }
+
+
+  function get_day_power_js_single ( $normalized = false ) {
+    $ret = "[";
+    if ( count ( $this->InverterInfo ) > 0 ) {
+      foreach ( $this->InverterInfo as $inverter ) {
+	$connectedPowerkWp = $inverter->ConnectedPower/1000;
+
+	$ret .=	  "{
+	  name: 'P<sub>ac</sub> " . $inverter->Type  . "',
+	  type: 'spline',
+          marker: { enabled: false,
+                    states: {
+                      hover: {
+                        enabled: true,
+                        radius: 3
+                      }
+                    }
+                  },
+          data: [
+          ";
+	foreach ( $inverter->minutesData as $minData ) {
+	  $ret .= "[Date.UTC(" . 
+	    $minData [ 'year' ] . ", " .
+	    $minData [ 'month' ] . ", " .
+	    $minData [ 'day' ] . ", " .
+	    $minData [ 'hour' ] . ", " .
+	    $minData [ 'minute' ] . ", " .
+	    $minData [ 'second' ] .
+	    "), ";
+	  if ( $normalized ) {
+	    $ret .= round ( $minData [ 'pac' ] / $connectedPowerkWp, 2 );
+	  }
+	  else {
+	    $ret .= round ( $minData [ 'pac' ], 2 );
+	  }
+	  $ret .=  "],\n";	
+	}
+	
+	$ret .= "]"; // END DATA
+	$ret .= "},";
+      }
+      
+      // FIXME: remove last comma
+      $ret = substr ( $ret, 0, -1 );
+    }      
+    return $ret;
+  }
+
+  function get_month_energy_js_combined () {
+    
+    $ret = "";
+    if ( count ( $this->InverterInfo ) > 0 ) {
+      $xAxis = array ();
+      $data = array ();
+      foreach ( $this->InverterInfo [0]->dayData as $dayData ) {
+	// iterate over all datasets
+	$energy = 0;
+	foreach ( $this->InverterInfo as $inverter ) {
+	  $energy += $inverter->dayData [ $dayData [ 'timestamp' ] ][ 'energy' ];
+	}       
+	$xAxis [] = $dayData [ 'day' ];
+
+	$yAxis [] = "{y: $energy, id: \"A" . 
+	  $dayData [ 'day' ] . 
+	  $dayData [ 'month' ] . 
+	  $dayData [ 'year' ] . "\"}";
+      }
+      $ret .= "	    },
+	  subtitle: {
+	    text: '" . $this->month_today . "'
+	  },
+	  xAxis: {
+";
+      $ret .= "categories: [" . implode ( ",", array_reverse ( $xAxis ) ) . "]";
+$ret .= "
+	},
+";
+      $ret .= "series: ";
+      $ret .=	  "[{
+	  name: 'Kombinierte Energie AC',
+	  type: 'column',
+          events: {
+          },
+data: [
+";
+      $ret .= implode ( ",", array_reverse ( $yAxis ) );
+    }
+    $ret .= "]
+      } ";
+
+    return $ret;
+  }
+
+
+  function get_month_energy_js_single ( $normalized = FALSE ) {
+    
+    $ret = "";
+    if ( count ( $this->InverterInfo ) > 0 ) {
+      $xAxis = array ();
+      $data = array ();
+      foreach ( $this->InverterInfo [0]->dayData as $dayData ) {
+	// iterate over all datasets
+	$energy = 0;
+	foreach ( $this->InverterInfo as $inverter ) {
+	  $energy += $inverter->dayData [ $dayData [ 'timestamp' ] ][ 'energy' ];
+	}       
+	$xAxis [] = $dayData [ 'day' ];
+
+	$yAxis [] = "{y: $energy, id: \"A" . 
+	  $dayData [ 'day' ] . 
+	  $dayData [ 'month' ] . 
+	  $dayData [ 'year' ] . "\"}";
+      }
+      $ret .= "	    },
+	  subtitle: {
+	    text: '" . $this->month_today . "'
+	  },
+	  xAxis: {
+";
+      $ret .= "categories: [" . implode ( ",", array_reverse ( $xAxis ) ) . "]";
+$ret .= "
+	},
+";
+      $ret .= "series: ";
+      $ret .=	  "[{
+	  name: 'Kombinierte Energie AC',
+	  type: 'column',
+          events: {
+          },
+
+data: [
+";
+      $ret .= implode ( ",", array_reverse ( $yAxis ) );
+    }
+    $ret .= "]
+      } ";
+
+    return $ret;
+  }
+
+
+  /**
+   * Date-Format: YYMMDD
+   *
+   */
+  function get_day_data ( $date = "", $combined ) {
+    if ( $date == "" ) {
+      $day_file_name = "/home/websites/solar.doerflinger.org/min_day.js";
+    }
+    else {
+      $day_file_name = "/home/websites/solar.doerflinger.org/min$date.js";
+    }
+
+    if ( file_exists ( $day_file_name ) ) {
+      $day_file = file ( $day_file_name );
+    }
+    else return 0;
+
+    $this->has_data = TRUE;
+    $count = 0;
+    foreach ( $day_file as $min_data_line ) {
+      $count ++;
+      $min_data_line = substr ( substr ( trim ( $min_data_line ), 9 ), 0, -1 );
+      $invertersArray = explode ( "|", $min_data_line );
+      $timestamp = trim ( $invertersArray [0] );
+      $this->date_today = substr ( $timestamp, 0, 8 );
+      $ts_day = substr ( $timestamp, 0, 2 );
+      $ts_month = substr ( $timestamp, 3, 2 );
+      $ts_year = substr ( $timestamp, 6, 2 );
+      $ts_hour = substr ( $timestamp, 9, 2 );
+      $ts_minute = substr ( $timestamp, 12, 2 );
+      $ts_second = substr ( $timestamp, 15, 2 );
+
+      array_shift ( $invertersArray );
+      foreach ( $this->InverterInfo as $inverter ) {
+	$lineArray = explode ( ";", $invertersArray [ $inverter->InverterNumber ] );
+	$minVals = array ();
+
+	$minVals [ 'timestamp' ] = $timestamp;
+	$minVals [ 'day' ] = $ts_day;
+	$minVals [ 'month' ] = $ts_month;
+	$minVals [ 'year' ] = "20" . $ts_year;
+	$minVals [ 'hour' ] = $ts_hour;
+	$minVals [ 'minute' ] = $ts_minute;
+	$minVals [ 'second' ] = $ts_second;
+ 
+	//	echo "Timestamp added";
+	//print_r ( $minVals );
+
+	// Get Pac and remove it from the array
+	$minVals [ 'pac' ] = $lineArray [0];
+	array_shift ( $lineArray);
+	// get DC Power and remove each line
+	for ( $i = 0; $i < $inverter->NumberOfStrings; $i++ ) {
+	  $minVals [ 'pdc' ][ $i ] = $lineArray [0];
+	  array_shift ( $lineArray );
+	}
+	// get todays energy
+	$minVals [ 'dayEnergy' ] = $lineArray [0];
+	// ASSUMING: data is in reverse order, so the last of these values must be the first of the day
+	$this->EnergyYesterday = $lineArray [0];
+	array_shift ( $lineArray );
+	// Get DC voltages and remove
+	for ( $i = 0; $i < $inverter->NumberOfStrings; $i++ ) {
+	  $minVals [ 'udc' ][ $i ] = $lineArray [0];
+	  array_shift ( $lineArray );
+	}
+	if ( $inverter->HasTemp == 1 ) {
+	  $minVals [ 'temp' ] = $lineArray [0];
+	}
+	$inverter->minutesData[ $timestamp ] = $minVals;
+      }
+    }
+    return $count;
+  }
+
+  /**
+   * Date-Format: YYMM
+   *
+   */
+  function get_month_data ( $date = "", $combined ) {
+    $month_file_name = "/home/websites/solar.doerflinger.org/days_hist.js";
+    if ( file_exists ( $month_file_name ) ) {
+      $month_file = file ( $month_file_name );
+    }
+    else return 0;
+    if ( $date == "" ) {
+      $month = date ( "m" );
+      $year = date ( "y" );
+    }
+    else {
+      $month = substr ( $date, 2, 2 );
+      $year = substr ( $date, 0, 2 );
+    }
+
+    $this->has_data = TRUE;
+    $count = 0;
+    foreach ( $month_file as $day_data_line ) {
+      $count ++;
+      $month_year = "$month.$year";
+
+      if ( substr ( $day_data_line, 13, 5 ) == $month_year ) {
+	$day_data_line = substr ( substr ( trim ( $day_data_line ), 10 ), 0, -1 );
+	$invertersArray = explode ( "|", $day_data_line );
+	$timestamp = trim ( $invertersArray [0] );
+	$this->month_today = $month;
+	$ts_day = substr ( $timestamp, 0, 2 );
+	$ts_month = substr ( $timestamp, 3, 2 );
+	$ts_year = substr ( $timestamp, 6, 2 );
+	array_shift ( $invertersArray );
+	foreach ( $this->InverterInfo as $inverter ) {
+	  $lineArray = explode ( ";", $invertersArray [ $inverter->InverterNumber ] );
+	  $dayVals = array ();
+	  $dayVals [ 'timestamp' ] = $timestamp;
+	  $dayVals [ 'day' ] = $ts_day;
+	  $dayVals [ 'month' ] = $ts_month;
+	  $dayVals [ 'year' ] = "20" . $ts_year;
+	  $dayVals [ 'energy' ] = $lineArray [0];
+	  $dayVals [ 'pac_max' ] = $lineArray [1];
+	  $inverter->dayData[ $timestamp ] = $dayVals;
+	}
+      }      
+    }
+    return $count;
+  }
+
+  function get_base_data () {
+    $base_vars_file = file ( "/home/websites/solar.doerflinger.org/base_vars.js" );
+    foreach ( $base_vars_file as $base_var ) {
+//	  	echo ( "<h1>$base_var</h1>");
+		
+      if ( substr ( $base_var, 0, 14 ) == "var AnlagenKWP" ) $this->SiteKWP = substr ( $base_var, strpos ( $base_var, "=" )+1 );
+      if ( substr ( $base_var, 0, 12 ) == "var AnzahlWR" ) $this->NumberOfInverters = substr ( $base_var, strpos ( $base_var, "=" )+1 );
+	  
+      if ( substr ( $base_var, 0, 6 ) == "WRInfo" ) {
+	// Found WR Info
+	// FIXME: Fix char encoding!
+	
+	// FIXME: take care of more than ten inverters!
+		
+		if ( substr( $base_var, 9, 1 ) == "=" ) {
+		  // We have a "Master"
+//		  echo ( "<h1>GOT IT!</h1>");
+
+		  $inverterNumber = substr( $base_var, 7, 1 );
+		  $this->InverterInfo [ $inverterNumber ] = new Inverter ();
+		  $this->InverterInfo [ $inverterNumber ]->InverterNumber = $inverterNumber;
+	  
+		  // UGLY hack: replace possible commas and quotes in descriptions etc.
+		  preg_match_all('/\"(.*?)\"/', $base_var, $matches);
+	
+		  foreach ( $matches[1] as $match ) {
+		  
+		    $ret = str_replace ( ",",";", $match );
+			
+		    $base_var = substr ( trim ( $base_var ), 0, strpos ( $base_var, $match )-1 ) .
+		      $ret .
+		      substr ( trim ( $base_var ), strpos ( $base_var, $match ) + strlen ( $match )+1 )
+		      ;
+	
+		  }
+		  
+		  /*
+		  echo ( "<h2>$base_var</h2>");
+	
+		  echo ( "<p>1: " . trim ( substr ( $base_var, 20 ) ) . "</p>" );
+		  echo ( "<p>2: " . substr ( trim ( substr ( $base_var, 20 ) ), 0, -1 ) . "</p>" );
+		  echo ( "<p>3: " . str_replace ( "\"", "", substr ( trim ( substr ( $base_var, 20 ) ), 0, -1 ) ) . "</p>" );
+		  echo ( "<p>4: " . str_replace ( "\"", "", substr ( trim ( substr ( $base_var, 20 ) ), 0, -1 ) ). "</p>" );
+		  echo ( "<p>5: " . utf8_encode ( htmlentities ( utf8_encode ( str_replace ( "\"", "", substr ( trim ( substr ( $base_var, 20 ) ), 0, -1 ) ) ) ) ). "</p>" );
+
+		  print_r ( explode ( ",", htmlentities ( str_replace ( "\"", "", substr ( trim ( substr ( $base_var, 20 ) ), 0, -1 ) ) ) ) );
+*/
+	  $inverterArray = explode ( ',', htmlentities( utf8_encode ( str_replace ( "\"", "", substr ( trim ( substr ( $base_var, 20 ) ), 0, -1 ) ) ) ) );
+	  
+//	  print_r ( $inverterArray);
+	  
+
+	  $this->InverterInfo [ $inverterNumber ]->Type = $inverterArray [0];
+	  $this->InverterInfo [ $inverterNumber ]->AddressSerial = $inverterArray [1];
+	  $this->InverterInfo [ $inverterNumber ]->ConnectedPower = $inverterArray [2];
+	  $this->InverterInfo [ $inverterNumber ]->Description = $inverterArray [4];
+	  $this->InverterInfo [ $inverterNumber ]->NumberOfStrings = $inverterArray [5];
+	  $this->InverterInfo [ $inverterNumber ]->HasTemp = $inverterArray [12];
+	  
+	}
+	else {
+	  if ( substr( $base_var, 10, 1 ) == "6" ) {
+	    // Array of String Names
+	    preg_match_all('/\"(.*?)\"/', $base_var, $matches);
+	    foreach ( $matches[1] as $match ) {
+	      $ret = str_replace ( ",",";", $match );
+	      $base_var = substr ( trim ( $base_var ), 0, strpos ( $base_var, $match )-1 ) .
+		$ret .
+		substr ( trim ( $base_var ), strpos ( $base_var, $match ) + strlen ( $match )+1 )
+		;
+	    }
+
+	    $stringNameArray = explode ( ',', htmlentities( str_replace ( "\"", "", substr ( trim ( substr ( $base_var, 23 ) ), 0, -1 ) ) ) );
+	    $inverterNumber = substr( $base_var, 7, 1 );
+	    $this->InverterInfo [ $inverterNumber ]->StringNames = $stringNameArray;
+
+	  }
+	  else if ( substr ( $base_var, 10, 1 ) == "7" ) {
+	    // Array of Module Fields
+	    // FIXME: use these Values!
+
+	  }
+	}
+      }
+    }
+    // FIXME: get site data!
+    // End parse base_vars.js
+
+    //
+    
+
+  }
+
+}
+
+?>

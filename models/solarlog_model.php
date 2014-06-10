@@ -126,6 +126,16 @@ class Inverter {
 	 * @access public
 	 */
 	var $dayData = array ();  
+
+	/**
+	 * Array of data by month.
+	 * 
+	 * (default value: array ())
+	 * 
+	 * @var array
+	 * @access public
+	 */
+	var $monthData = array ();  
 }
 
 
@@ -272,6 +282,57 @@ class Solarlog_model extends CI_Model {
 			return ( array( $name, $cat, $data, $datestr ) );
 		}	
 	}
+
+  /**
+   * get_year_power_ajax function.
+   * 
+   * @access public
+   * @param string $type (default: "energy")
+   * @param string $date (default: "")
+   * @param mixed $combined (default: TRUE)
+   * @return void
+   */
+   function get_year_power_ajax ( $type="energy", $date = "", $combined = TRUE ) {
+		if ( $date == date( 'ymd' ) ) $date = "";
+		if ( !$this->has_data ) {
+			$this->get_year_data ( $date, $combined );
+		}
+		$xAxis = array ();
+		$data = array ();
+		$cat = array();
+		$name = array();
+		$counter = 0;
+		if ( count ( $this->InverterInfo ) > 0 ) {
+			foreach ( $this->InverterInfo as $inverter ) {
+				$name[$counter] = $inverter->Type;		
+				// $dayData starts today, we need to reverse it ...
+				$vals = array_reverse( $inverter->monthData );
+				foreach ( $vals as $val ) {
+					$data[$counter][] = $val ['energy' ];
+					$cat[$counter][] = $val ['timestamp' ];
+				}
+				$counter ++;
+			}       
+		}
+		
+		if ( $date == "" ) $datestr = date ( 'ymd' );
+		else $datestr = $date;
+		
+		if ( $combined ) {
+			$ret = array();
+			foreach ( $data as $datarray ) {
+				$ret = array_map(function () {
+					return array_sum(func_get_args());
+				}, $ret, $datarray);
+				$name[0] = "Energie gesamt";
+			}		
+			return ( array( $name, $cat, array( $ret ), $datestr ) );
+		}
+		else {
+			return ( array( $name, $cat, $data, $datestr ) );
+		}	
+	}
+
 
 
 	/**
@@ -490,6 +551,58 @@ class Solarlog_model extends CI_Model {
 		}
 		return $count;
 	}
+
+  /**
+   * get_year_data function.
+   * 
+   * @access public
+   * @param string $date (default: "")
+   * @param mixed $combined
+   * @return void
+   *
+   * Date-Format: YYMM
+   *
+   */
+    function get_year_data ( $date = "", $combined ) {
+		$year_file_name = "/home/websites/solar.doerflinger.org/months.js";
+		if ( file_exists ( $year_file_name ) ) {
+			$year_file = file ( $year_file_name );
+		}
+		else return 0;
+		if ( $date == "" ) {
+			$month = date ( "m" );
+			$year = date ( "y" );
+		}
+		else {
+			$month = substr ( $date, 2, 2 );
+			$year = substr ( $date, 0, 2 );
+		}
+		
+		$this->has_data = TRUE;
+		$count = 0;
+		foreach ( $year_file as $month_data_line ) {
+			$count ++;
+			if ( substr ( $month_data_line, 16, 2 ) == $year ) {
+				$month_data_line = substr ( substr ( trim ( $month_data_line ), 10 ), 0, -1 );
+				$invertersArray = explode ( "|", $month_data_line );
+				$timestamp = trim ( $invertersArray [0] );
+				$ts_month = substr ( $timestamp, 3, 2 );
+				$ts_year = substr ( $timestamp, 6, 2 );
+				array_shift ( $invertersArray );
+				foreach ( $this->InverterInfo as $inverter ) {
+					$lineArray = explode ( ";", $invertersArray [ $inverter->InverterNumber ] );
+					$monthVals = array ();
+					$monthVals [ 'timestamp' ] = $ts_month;
+					$monthVals [ 'month' ] = $ts_month;
+					$monthVals [ 'year' ] = "20" . $ts_year;
+					$monthVals [ 'energy' ] = $lineArray [0];
+					$inverter->monthData[ $timestamp ] = $monthVals;
+				}
+			}
+		}
+		return $count;
+	}
+
 
 	function get_base_data () {
     	$base_vars_file = file ( "/home/websites/solar.doerflinger.org/base_vars.js" );

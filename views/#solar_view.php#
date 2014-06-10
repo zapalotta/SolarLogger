@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="utf-8">
+   <title>Solaranlage Scheune Wambach</title>
+   <link rel="stylesheet" href="/css/main.css">
+<!--   <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" /> -->
+   <link rel="stylesheet" href="/js/jquery-ui-1.10.3.custom/css/smoothness/jquery-ui-1.10.3.custom.min.css" /> 
+
+   <script src="/js/jquery-1.10.2.min.js"></script>
+
+   <script type="text/javascript" src="/js/highcharts.js"></script>
+
+
+   <script src="/js/jquery-ui-1.10.3.custom/js/jquery-ui-1.10.3.custom.min.js"></script>
+<!--   <script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>-->
+
+
+   <!-- 1b) Optional: the exporting module -->
+<!--   <script type="text/javascript" src="/js/modules/exporting.js"></Script> -->
+         
+
+
+
+   <!-- 2. Add the JavaScript to initialize the chart on document ready -->
+   <script type="text/javascript">
+	      
+var chart;
+
+// Potenzieller anderer Kalender: http://reaktor.github.io/jquery-continuous-calendar/
+
+
+$(function() {
+
+    var dayDatepickerOptions = {
+    dateFormat: "ymmdd",
+    showOn: "button",
+    changeMonth: true,
+    changeYear: true,
+    maxDate: 0,
+    buttonImage: "calendar.gif",
+    showButtonPanel: true,
+    buttonImageOnly: true,
+    onSelect: function(dateText, inst) {
+	drawChart ( dateText );
+      },
+    onChangeMonthYear: function ( year, month, picker ) {
+	//	  alert (month);
+      }
+    }
+    //    $( "#radio" ).buttonset();
+    $(".rg1").change(function () {
+	//    alert( $('input[name=radio]:checked', '#daymonthselect').val() );
+	if ( $('#radio1:checked', '#daymonthselect').val() == "on" ) {
+	  // day
+	  $("#datepicker").datepicker( dayDatepickerOptions );
+	  $("#normalize").removeAttr("disabled");
+	  $("#energy").removeAttr("disabled");
+	  $("#diverted").removeAttr("disabled");
+	}
+	else {
+	  $( "#datepicker" ).datepicker("destroy");
+	  $("#normalize").attr("disabled", true);
+	  $("#energy").attr("disabled", true);
+	  
+	}
+      });
+    //if ( $('#radio1:checked', '#daymonthselect').val() == "on" ) {
+    $( "#datepicker" ).datepicker( dayDatepickerOptions );
+    $("#diverted").removeAttr("disabled");
+    $("#normalize").removeAttr("disabled");
+    $("#energy").removeAttr("disabled");
+    //}
+  });
+
+function drawChart( dateText ) {
+
+  var colors = new Array( '#FF0000', '#008800', '#00FFFF', '#00FF00', '#0000FF', '#000000' );
+  
+  var diverted = 0;
+  var normalize = 0;
+  var energy = 0;
+  var monthly = 0;
+  var divertedIsChecked = $('#diverted:checked').val()?true:false;
+  var normalizeIsChecked = $('#normalize:checked').val()?true:false;
+  var energyIsChecked = $('#energy:checked').val()?true:false;
+  var monthlyIsChecked = $('#monthly:checked').val()?true:false;
+  
+  if( divertedIsChecked ){
+    combined = 0;
+  }
+  else {
+   combined = 1;
+  }
+  if( normalizeIsChecked ){
+    normalize = 1;
+  }
+  else {
+    normalize = 0;
+  }
+  if( energyIsChecked ){
+    energy = 1;
+  }
+  else {
+    energy = 0;
+  }
+
+  if ( monthlyIsChecked ) {
+    //
+    $.getJSON ( 'month_ajax', {
+      date: dateText,
+	  combined: combined,
+	  }).done(function( json ) {
+	      while(chart.series.length > 0)
+		chart.series[0].remove(true);
+	      data = [];
+	      cat = [];
+	      $.each( json, function ( ts, val ) {
+		  data.push( val );
+		  cat.push ( ts );
+		});
+	      console.log ( data );
+	      //	      chart.destroy();
+	      //	      chart = new Highcharts.Chart( {
+	      //		chart: {
+	      //		  renderTo: 'chart',
+	      //		      },
+	      //		});
+	      chart.addSeries ({
+		type: 'spline',
+		    data: data,
+		    xAxis: {
+		  type: 'linear',
+		      categories: cat,
+		      },
+		    yAxis: {
+		  }
+		});
+	    });
+    console.log ( chart );
+    return;
+  }
+
+  $.getJSON( 'day_ajax', {
+    date: dateText,
+	energy: energy,
+	combined: combined,
+	normalize: normalize,
+	//tagmode: "any",
+	//format: "json"
+	})
+	   .done(function( json ) {
+	       delete json.num_inverters;
+	       var energyData = new Array ();
+	       var startpoint;
+	       var cat = [];
+	       var typeStr = 'spline';
+	       while(chart.series.length > 0)
+		 chart.series[0].remove(true);
+	       chart.setTitle({ text: $.datepicker.formatDate("dd.mm.y", $('#datepicker').datepicker("getDate"))});
+	       
+	       $.each(json, function(key,value) {
+		   if ( chart.series.length > 0 ) {
+		     typeStr = 'spline';
+		   }
+		   ret = [];
+		   ts = [];
+
+		   // Get first timestamp as a starting point
+		   console.log ( value['data'][0][0] );
+		   startpoint = value['data'][0][0];
+		 $.each(value.data, function(index, val) {
+		       ret.push(json2array( val ) );
+		     });
+
+		   if ( energy == 1 ) {
+		     if ( chart.series.length == 0 ) {
+		       $.each( value.energy, function ( index, val ) {
+			   energyData.push ( json2array( val ) );
+			 });
+		     }
+		   }
+
+		   chart.addSeries ( 
+		   {
+		   type: typeStr,
+		   name: value.name + '(W)',
+		   pointInterval: 300 * 1000,
+		 
+		       //  pointStart: Date.UTC(2014, 02, 01, 07, 00, 00),
+		       //08.02.14 07:20:00
+		       pointStart: Date.UTC ( '20' + startpoint.substr( 6, 2 ),
+					      startpoint.substr( 3, 2 ),
+					      startpoint.substr( 0, 2 ),
+					      startpoint.substr( 9, 2 ),
+					      startpoint.substr( 12, 2 ),
+					      startpoint.substr( 15, 2 )
+					      ),
+
+    
+		   data: ret,
+		   color: colors[ chart.series.length ],
+		       fillColor: {
+		     linearGradient: [0, 0, 0, 700],
+			 stops: [
+				 [0, 'rgb(69, 114, 167)'],
+				 [1, 'rgba(2,0,0,0)']
+                    ]
+			 },
+		   marker: { 
+		    enabled: false,
+		     states: {
+		       hover: {
+			 enabled: true,
+			     radius: 3
+			     }
+		       }
+		     }, 
+		       });	
+		 });
+
+		   chart.addSeries ( 
+		   {
+		   type: 'areaspline',
+		   name: 'Ertrag (kWh)' ,
+		   pointInterval: 300 * 1000,
+		       pointStart: Date.UTC ( '20' + startpoint.substr( 6, 2 ),
+					      startpoint.substr( 3, 2 ),
+					      startpoint.substr( 0, 2 ),
+					      startpoint.substr( 9, 2 ),
+					      startpoint.substr( 12, 2 ),
+					      startpoint.substr( 15, 2 )
+					      ),
+
+
+		   data: energyData,
+		       yAxis: 1,
+		   color: '#BBBBBB',
+		       fillColor: {
+		     linearGradient: [0, 0, 0, 700],
+			 stops: [
+				 [0, 'rgb(200, 200, 200)'],
+				 [1, 'rgba(255,255,255,0.2)']
+                    ]
+			 },
+		   marker: { 
+		    enabled: false,
+		     states: {
+		       hover: {
+			 enabled: true,
+			     radius: 3
+			     }
+		       }
+		     }, 
+		       });	
+
+
+
+	     });
+  
+}
+function json2array(json){
+  var result = [];
+  var keys = Object.keys(json);
+  keys.forEach(function(key){
+      result.push(json[key]);
+    });
+  return result;
+}
+
+$(document).ready(function() {  
+    
+    $("#diverted").change(function () {
+      var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
+      drawChart ( datestr );
+    });
+
+    $("#energy").change(function () {
+      var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
+      drawChart ( datestr );
+    });
+
+    $("#normalize").change(function () {
+      var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
+      drawChart ( datestr );
+    });
+
+    $("#monthly").change(function () {
+      var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
+      drawChart ( datestr );
+    });
+
+    
+    var options = 
+      {
+      xAxis: {
+	labels: {
+	  formatter: function() 
+	  {
+	    var timeStr = Highcharts.dateFormat('%H:%M', this.value);
+	    return ( timeStr );
+	  },
+	},
+	dateTimeLabelFormats: { 
+	  month: '%e. %b',
+	  year: '%b',
+	  millisecond:"%A, %b %e, %H:%M:%S.%L",
+	  second:"%A, %b %e, %H:%M:%S",
+	  minute:"%A, %b %e, %H:%M",
+	  hour:"%A, %b %e, %H:%M",
+	},
+
+	type: 'datetime',
+	//	maxZoom: 24 * 3600000, 
+	align: 'right',
+	style: {
+	  fontSize: '6px',
+	  fontFamily: 'Verdana, sans-serif',
+	}
+      },
+      yAxis: [{
+	title: {
+	  text: 'Watt'
+	},
+	min: 0,
+	  },
+      {
+      title: {
+	text: 'kWh',
+      },
+      opposite: true,
+      }
+	],
+      legend: {
+	layout: 'vertical',
+	backgroundColor: '#FFFFFF',
+	align: 'left',
+	verticalAlign: 'top',
+	floating: true,
+	x: 90,
+	y: 45,
+	borderWidth: 0
+        },
+      title: {
+	text:   $.datepicker.formatDate("dd.mm.y", $('#datepicker').datepicker("getDate")),
+      },
+      tooltip: {
+        crosshairs: [true],
+        enabled: true,
+	formatter: function() 
+	{
+	  var timeStr = Highcharts.dateFormat('%H:%M', this.x);
+	  return '<b>'+ this.series.name +'</b><br/>'+
+	  timeStr +': '+ Math.round(this.y * 10) / 10;
+	}
+      },
+      chart: {
+	renderTo: 'chart',
+	type: 'spline',
+	events: {
+	  load: function(event) 
+	  {
+	    $(document).resize(); 
+	  }
+        }        
+      },
+      series: [{
+	  name: '',
+	  data: [],
+	  }]
+      };
+
+    chart = new Highcharts.Chart( options );
+
+    var datestr = $.datepicker.formatDate("ymmdd", $('#datepicker').datepicker("getDate"));
+    drawChart ( datestr );
+
+    chart.series[0].setData([],true);	  
+  });
+ 
+$('#normalize').mousedown(function() {
+    if (!$(this).is(':checked')) {
+      this.checked = confirm("Are you sure?");
+      $(this).trigger("change");
+    }
+  });
+
+$('#diverted').on('change', function() { 
+    // From the other examples
+    if (!this.checked) {
+      var sure = confirm("Are you sure?");
+      this.checked = sure;
+      $('#diverted').val(sure.toString());
+    }
+  });
+
+$('#monthly').on('change', function() { 
+    if (!this.checked) {
+      var sure = confirm("Are you sure?");
+      this.checked = sure;
+      $('#diverted').val(sure.toString());
+    }
+  });
+
+   </script>
+
+</head>
+<body>
+  <h1>Photovoltaikanlage Scheune Wambach</h1>
+  <div id="menu">
+     <div id="navigation">
+
+<!--
+<form id="daymonthselect">
+<div id="radio">
+<input type="radio" class="rg1" id="radio1" name="radio" checked="checked"><label for="radio1">Tag</label>
+<input type="radio" class="rg1" id="radio2" name="radio"><label for="radio2">Monat</label>
+</div>
+</form>
+-->
+      <div id="datepicker"></div>
+
+
+<br />
+  <div id="controls" class="ui-widget ui-widget-content ui-helper-clearfix ui-corner-all controls">
+    <div id="controls-header" class="ui-datepicker-header ui-widget-header ui-helper-clearfix ui-corner-all controls-header">
+Ansicht
+    </div>
+
+<div class="format">
+  <input type="checkbox" id="monthly" /><label for="diverted">Monatswerte</label>
+</div>
+<div class="format">
+  <input type="checkbox" id="diverted" /><label for="diverted">Wechselrichter einzeln</label>
+</div>
+<div class="format">
+  <input type="checkbox" id="normalize" /><label for="normalize">Normalisieren</label>
+</div>
+<div class="format">
+  <input type="checkbox" id="energy" /><label for="energy">Ertrag anzeigen</label>
+</div>
+
+
+  </div>
+
+     </div>  <!-- End div navigation -->
+  </div>   <!-- End div menu -->
+
+  <div id="content">
+     <div id="chart"  style="min-width: 310px; height: 600px; margin: 0 auto" data-highcharts-chart="0"></div>
+
+
+  </div>
+
+
+  <p class="footer">Page rendered in <strong>{elapsed_time}</strong> seconds</p>
+
+
+</body>
+</html>
