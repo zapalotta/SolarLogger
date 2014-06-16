@@ -33,6 +33,22 @@ class Solar extends CI_Controller {
 	  $this->load->view( 'solar_view', $data);
 	}
 
+	public function test()
+	{
+	  $this->load->model ( 'Solarlog_model' );
+
+	  $date = $this->input->get( "d" );
+
+	  if ( $date == "" ) $date = "0";
+	  
+	  $data = array ( 
+	  	"date" => $date
+			  );
+
+	  $this->load->view( 'test_view', $data);
+	}
+
+
 	public function embed() {
 	  	$this->load->model ( 'Solarlog_model' );
 		$this->load->view( 'embed_view' );
@@ -67,8 +83,9 @@ class Solar extends CI_Controller {
 	  if ( $date == "" )
 		  $date = $this->input->get('date', TRUE);
 	  $combined = $this->input->get('combined', TRUE);
+	  $normalized = $this->input->get('normalize', TRUE);
 	  $this->load->model ( 'Solarlog_model' );
-	  echo ( json_encode ( array( $this->Solarlog_model->get_month_power_ajax( $type, $date, $combined ) ), JSON_NUMERIC_CHECK|JSON_FORCE_OBJECT ) );
+	  echo ( json_encode ( array( $this->Solarlog_model->get_month_power_ajax( $type, $date, $combined, $normalized ) ), JSON_NUMERIC_CHECK|JSON_FORCE_OBJECT ) );
 	  //print_r ( $this->Solarlog_model->get_day_power_ajax( $type, $date, $combined, $energy, $normalized ) );
 	}
 

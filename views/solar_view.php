@@ -406,7 +406,9 @@ function drawChart (  ) {
 		// Month graph
 		$.getJSON( '/index.php/solar/month_ajax', {
 			date: dateText,
-			combined: combined					
+			combined: combined,
+			normalize: normalize,
+					
 		}).done ( function ( json ) {
 			// Remove any preexisting series from the chart
 			while(chart.series.length > 0)
@@ -818,7 +820,6 @@ $(function () {
 	}
 
 	updatePermalink();
-
     
 	// Initialize Chart
 	chart = new Highcharts.Chart( chartOptions );
@@ -847,6 +848,23 @@ $(function () {
 		}
 	});
 	
+	$(document).on('click','.opener.show',function(){
+	    $( ".opener, #menu" ).animate({
+          left: "+=280"
+		  }, 500 );
+		  $(this).html('&laquo;');
+		  $(this).removeClass('show');
+		  $(this).addClass('hide');
+    });
+	
+	$(document).on('click','.opener.hide',function(){
+	    $( ".opener, #menu" ).animate({
+          left: "-=280"
+		  }, 500 );
+		  $(this).html('&raquo;');
+		  $(this).removeClass('hide');
+		  $(this).addClass('show');
+    });
 
 });
         
@@ -924,6 +942,8 @@ $(function () {
 			</div>
 		</div>  <!-- End div navigation -->
 	</div>  <!-- End div menu -->
+	<a href="javascript:void(0);" class="opener show">&raquo;</a>
+
 	<div id="header">
 		<h1>Photovoltaikanlage Scheune Wambach</span></fh1>
 	</div>
@@ -945,7 +965,42 @@ $(function () {
 	 Bei sehr geringer Leistung (Regentag) liefert sie allerdings in etwa gleich viel wie die S&uuml;danlage.
 	 	<h4>Balkendarstellung</h4>
 	 	Die Balken stellen den Ertrag pro Tag im Verlauf des Monats bzw. pro Monat im Lauf des Jahres dar. Der Ertrag (in kWh, Kilowattstunden) ist die Energie, die produziert und in das elektrische Netz eingespeist wurde, im Prinzip das Selbe wie beim Verbrauch elektrischer Energie durch z.B. ein Haushaltsgerät. Normalisierung w&uuml;rde in dieser Ansicht keinen sinnvollen Informationsgehalt liefern, darum wurde darauf verzichtet.  
+		<h4>Technische Daten</h4>
+		<dl>
+			<dt>Nennleistung gesamt</dt>
+			<dd>22,56kWp</dd>
+			<dt>Baujahr</dt>
+			<dd>2010</dd>
+			<dt>Standort</dt>
+			<dd>Wambach 9a, D-79692 Kleines Wiesental, <br/>
+			N 47° 44' 26.940" E 7° 44' 58.260", 750m NHN</dd>
+		</dl> 
+		<h5>Südanlage</h5>
+		<dl>
+			<dt>Solarmodule</dt>
+			<dd>17,96kWp: 78 Stück SolarWorld SunModule Plus 230 Mono, 230Wp, 8 Strings</dd>
+			<dt>Montagesystem</dt>
+			<dd>TRITEC TriRoof Pilotanlage (indach)</dd>
+			<dt>Wechselrichter</dt>
+			<dd><ul>
+				<li>KACO New Energy Powador 7200xi</li>
+				<li>Mastervolt XS6500</li>
+				<li>Mastervolt QS3500</li>
+				<li>Mastervolt QS3200</li>
+				</ul>
+			</dd>
+		</dl>
+		<h5>Nordanlage</h5>
+		<dl>
+			<dt>Solarmodule</dt>
+			<dd>4,6kWp: 40 Stück Heliosphera HS115 (micromorph), 115Wp, 10 Strings</dd>
+			<dt>Montagesystem</dt>
+			<dd>FATH Solar Aufdach</dd>
+			<dt>Wechselrichter</dt>
+			<dd>KACO New Energy Powador 4002</dd>
+		</dl>
 		</div>
+		
 		</div>
 	</div>
 	

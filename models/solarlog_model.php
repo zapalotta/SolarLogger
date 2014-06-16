@@ -242,7 +242,7 @@ class Solarlog_model extends CI_Model {
    * @param mixed $combined (default: TRUE)
    * @return void
    */
-   function get_month_power_ajax ( $type="energy", $date = "", $combined = TRUE ) {
+   function get_month_power_ajax ( $type="energy", $date = "", $combined = TRUE, $normalized = FALSE ) {
 		if ( $date == date( 'ymd' ) ) $date = "";
 		if ( !$this->has_data ) {
 			$this->get_month_data ( $date, $combined );
@@ -255,11 +255,19 @@ class Solarlog_model extends CI_Model {
 		if ( count ( $this->InverterInfo ) > 0 ) {
 			foreach ( $this->InverterInfo as $inverter ) {
 				$name[$counter] = $inverter->Type;		
+				$connectedPowerkWp = $inverter->ConnectedPower/1000;
+
 				// $dayData starts today, we need to reverse it ...
 				$vals = array_reverse( $inverter->dayData );
 				foreach ( $vals as $val ) {
-					$data[$counter][] = $val ['energy' ];
-					$cat[$counter][] = $val ['timestamp' ];
+					if ( !$normalized ) {
+						$data[$counter][] = $val ['energy' ];
+						$cat[$counter][] = $val ['timestamp' ];
+					}
+					else {
+						$data[$counter][] = $val ['energy' ];
+						$cat[$counter][] = $val ['timestamp' ];						
+					}
 				}
 				$counter ++;
 			}       
